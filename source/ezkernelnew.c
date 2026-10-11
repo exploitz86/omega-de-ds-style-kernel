@@ -4260,7 +4260,7 @@ static u32 Launcher_StartPreviewEnsureCached(u32 index)
 	memset(full, 0, sizeof(full));
 	if(!Launcher_StartPreviewIndexPath(index, path, sizeof(path), name, sizeof(name), full, sizeof(full)))
 		return 0;
-	if(!Launcher_IsGbaFilename(name))
+	if(!Launcher_IsLaunchableFilename(name))
 		return 0;
 
 	slot = index % LAUNCHER_START_PREVIEW_CACHE_COUNT;
@@ -5878,36 +5878,182 @@ static void Launcher_CustomThumbFileName(const char *filename, char *name, u32 n
 		*dot = '\0';
 }
 
-static u32 Launcher_LoadThumbnailFromRomHeader(TCHAR *filename, u8 *dst)
+/* Build an absolute SD path from the ROM's directory and file name.  The
+   artwork tree mirrors the ROM tree below /SYSTEM/IMGS or /SYSTEM/IMGS2. */
+static u32 Launcher_BuildRomFullPath(const char *rom_dir, const char *filename,
+	char *out, u32 out_size)
 {
-	u32 rett;
+	int written;
+
+	if(!out || out_size == 0 || !filename || !filename[0])
+		return 0;
+	if(filename[0] == '/')
+		written = snprintf(out, out_size, "%s", filename);
+	else if(!rom_dir || !rom_dir[0] || !strcmp(rom_dir, "/"))
+		written = snprintf(out, out_size, "/%s", filename);
+	else
+		written = snprintf(out, out_size, "%s/%s", rom_dir, filename);
+	return (written > 0) && ((u32)written < out_size);
+}
+
+static u32 Launcher_LoadThumbnailFile(const char *picpath, u8 *dst)
+{
+	u32 rett = 0;
 	u32 res;
+
+	if(!picpath || !dst)
+		return 0;
+	res = f_open(&gfile, picpath, FA_READ);
+	if(res != FR_OK)
+		return 0;
+	UIAudio_StopForSharedBufferUse();
+	res = Launcher_ReadThumbnailBytes(&gfile, dst, Launcher_ThumbnailReadSize(), (UINT*)&rett);
+	f_close(&gfile);
+	return (res == FR_OK) && (rett == Launcher_ThumbnailReadSize());
+}
+
+static u32 Launcher_LoadMirroredThumbnail(const char *rom_dir, const char *filename, u8 *dst)
+{
+	char picpath[MAX_path_len + 160];
+	char title[104];
+	const char *relative_dir;
+	int written;
+
+	if(!rom_dir || !filename || !filename[0] || !dst)
+		return 0;
+	Launcher_CustomThumbFileName(filename, title, sizeof(title));
+	if(!title[0])
+		return 0;
+
+	/* Drop the leading slash because the image root is already absolute. */
+	relative_dir = rom_dir;
+	while(*relative_dir == '/')
+		relative_dir++;
+	if(!relative_dir[0])
+		written = snprintf(picpath, sizeof(picpath), "%s/%s.bmp", Launcher_ThumbnailFolder(), title);
+	else
+		written = snprintf(picpath, sizeof(picpath), "%s/%s/%s.bmp", Launcher_ThumbnailFolder(), relative_dir, title);
+	if(written <= 0 || (u32)written >= sizeof(picpath))
+		return 0;
+	return Launcher_LoadThumbnailFile(picpath, dst);
+}
+
+/* An optional per-extension image can be placed at CUSTOM/<extension>.bmp.
+   This is deliberately opened directly rather than through the old flat
+   CUSTOM manifest, whose historical cap is 256 entries. */
+static u32 Launcher_LoadExtensionDefaultThumbnail(const char *filename, u8 *dst)
+{
+	char picpath[160];
+	char extension[24];
+	const char *dot;
+	u32 i;
+	int written;
+	size_t len;
 
 	if(!filename || !dst)
 		return 0;
+	dot = strrchr(filename, '.');
+	if(!dot || !dot[1])
+		return 0;
+	len = strlen(dot + 1);
+	if(len >= sizeof(extension))
+		return 0;
+	for(i = 0; i < len; i++)
+	{
+		char c = dot[1 + i];
+		if(!(((c >= 'A') && (c <= 'Z')) || ((c >= 'a') && (c <= 'z')) ||
+		((c >= '0') && (c <= '9')) || (c == '_') || (c == '-')))
+			return 0;
+		if((c >= 'A') && (c <= 'Z'))
+			c += ('a' - 'A');
+		extension[i] = c;
+	}
+	extension[len] = '\0';
+	written = snprintf(picpath, sizeof(picpath), "%s/CUSTOM/%s.bmp", Launcher_ThumbnailFolder(), extension);
+	if(written <= 0 || (u32)written >= sizeof(picpath))
+		return 0;
+	return Launcher_LoadThumbnailFile(picpath, dst);
+}
 
-	res = f_open(&gfile, filename, FA_READ);
+static u32 Launcher_LoadThumbnailFromRomHeaderPath(const char *rom_dir, const char *filename, u8 *dst)
+{
+	char rompath[MAX_path_len + 160];
+	u32 rett = 0;
+	u32 res;
+
+	if(!filename || !dst || !Launcher_BuildRomFullPath(rom_dir, filename, rompath, sizeof(rompath)))
+		return 0;
+	res = f_open(&gfile, rompath, FA_READ);
 	if(res != FR_OK)
 		return 0;
 	f_lseek(&gfile, 0xAC);
 	res = Launcher_ReadThumbnailBytes(&gfile, GAMECODE, 4, (UINT *)&rett);
 	f_close(&gfile);
-	if((res != FR_OK) || (rett != 4))
+	if((res != FR_OK) || (rett != 4) || !Launcher_IsValidGameCodeBytes(GAMECODE))
 		return 0;
-
 	return Launcher_LoadThumbnailByGameCode(GAMECODE, dst);
+}
+
+/* Used by the list/carousel as well as the start-screen preview.  Thumbnail
+   data is kept in the launcher's existing three-slot PSRAM cache; navigation
+   invalidates that cache, so a folder's artwork is never retained as the
+   active artwork after leaving the folder. */
+static u32 Launcher_LoadThumbnailForPath(const char *filename, const char *rom_dir,
+	u8 *dst, const u8 *known_gamecode)
+{
+	TCHAR custom_name[104];
+
+	if(!filename || !filename[0] || !dst)
+		return 0;
+	if(Launcher_LoadMirroredThumbnail(rom_dir, filename, dst))
+		return 1;
+
+	Launcher_CustomThumbFileName(filename, custom_name, sizeof(custom_name));
+	if(Launcher_LoadCustomThumbnailByName(custom_name, dst))
+		return 1;
+
+	/* Header game codes are only meaningful for GBA ROMs.  Other console
+	   formats use their relative path and file name, never an arbitrary
+	   four-byte sequence at offset 0xAC. */
+	if(Launcher_IsGbaFilename(filename))
+	{
+		if(known_gamecode && Launcher_IsValidGameCodeBytes(known_gamecode) &&
+		Launcher_LoadThumbnailByGameCode(known_gamecode, dst))
+			return 1;
+		if(Launcher_LoadThumbnailFromRomHeaderPath(rom_dir, filename, dst))
+			return 1;
+	}
+
+	if(Launcher_LoadExtensionDefaultThumbnail(filename, dst))
+		return 1;
+
+	/* ROMs/plugins with no matching file art still use the existing full-size
+	   NOTFOUND asset, not the tiny system icon.  Pixel data starts after the
+	   54-byte BMP header in the shared thumbnail slot. */
+	if(Launcher_IsLaunchableFilename(filename))
+	{
+		u32 pixel_bytes = Launcher_ThumbnailSourceWidth() * Launcher_ThumbnailSourceHeight() * 2;
+		memset(dst, 0, LAUNCHER_THUMB_BMP_HEADER);
+		memcpy(dst + LAUNCHER_THUMB_BMP_HEADER, Launcher_NotFoundImage(), pixel_bytes);
+		return 1;
+	}
+	return 0;
 }
 
 u32 Load_ThumbnailEx(TCHAR *pfilename_pic, u8 *dst)
 {
-	TCHAR custom_name[104];
-
-	Launcher_CustomThumbFileName(pfilename_pic, custom_name, sizeof(custom_name));
-
-	if(Launcher_LoadCustomThumbnailByName(custom_name, dst))
-		return 1;
-
-	return Launcher_LoadThumbnailFromRomHeader(pfilename_pic, dst);
+	TCHAR rom_dir[MAX_path_len];
+	TCHAR rom_name[200];
+	const TCHAR *filename = pfilename_pic;
+	if(!pfilename_pic || !dst)
+		return 0;
+	memset(rom_dir, 0, sizeof(rom_dir));
+	if(pfilename_pic[0] == '/' &&
+	Launcher_SplitFullPath(pfilename_pic, rom_dir, sizeof(rom_dir), rom_name, sizeof(rom_name)))
+		filename = rom_name;
+	else if(f_getcwd(rom_dir, sizeof(rom_dir) / sizeof(*rom_dir)) != FR_OK)
+		strcpy(rom_dir, "/");
+	return Launcher_LoadThumbnailForPath(filename, rom_dir, dst, 0);
 }
 
 u32 Load_Thumbnail(TCHAR *pfilename_pic)
@@ -7338,19 +7484,22 @@ static void Launcher_ActivateThumbnailWorkspace(u32 mode)
 static u32 Launcher_LoadThumbDataForIndex(u32 absolute_index, u8 *thumb_data)
 {
 	TCHAR *name = 0;
-	TCHAR custom_name[104];
+	TCHAR rom_dir[MAX_path_len];
+	TCHAR virtual_name[200];
+	const u8 *known_gamecode = 0;
 	u32 virtual_index = 0;
 	u32 total_entries = Launcher_GetTotalEntries();
-	u32 has_thumbnail = 0;
 
 	if(!thumb_data || absolute_index >= total_entries)
 		return 0;
 
 	if(Launcher_IsNORPage())
 	{
+		u32 has_thumbnail = 0;
 		name = pNorFS[absolute_index].filename;
 		if(name)
 		{
+			TCHAR custom_name[104];
 			Launcher_CustomThumbFileName(name, custom_name, sizeof(custom_name));
 			has_thumbnail = Launcher_LoadCustomThumbnailByName(custom_name, thumb_data - LAUNCHER_THUMB_BMP_HEADER);
 		}
@@ -7365,34 +7514,39 @@ static u32 Launcher_LoadThumbDataForIndex(u32 absolute_index, u8 *thumb_data)
 
 	if(absolute_index < folder_total)
 	{
+		/* Folders retain their custom named artwork behavior; ROMs inside them
+		   resolve against the matching relative directory after navigation. */
 		name = pFolder[absolute_index].filename;
 		if(name)
-			has_thumbnail = Launcher_LoadCustomThumbnailByName(name, thumb_data - LAUNCHER_THUMB_BMP_HEADER);
-		return has_thumbnail;
+		{
+			TCHAR custom_name[104];
+			Launcher_CustomThumbFileName(name, custom_name, sizeof(custom_name));
+			return Launcher_LoadCustomThumbnailByName(custom_name, thumb_data - LAUNCHER_THUMB_BMP_HEADER);
+		}
+		return 0;
 	}
 
 	if(recents_view_active)
 	{
 		virtual_index = absolute_index - folder_total;
-		name = p_recently_play[absolute_index - folder_total];
+		if(virtual_index < 10 && launcher_virtual_gamecode_valid[virtual_index])
+			known_gamecode = launcher_virtual_gamecode[virtual_index];
+		if(virtual_index >= 10 || !Launcher_SplitFullPath(p_recently_play[virtual_index], rom_dir,
+			sizeof(rom_dir), virtual_name, sizeof(virtual_name)))
+			return 0;
+		name = virtual_name;
 	}
 	else
-		name = pFilename_buffer[absolute_index - folder_total].filename;
-	if(name)
 	{
-		u32 len = strlen(name);
-		Launcher_CustomThumbFileName(name, custom_name, sizeof(custom_name));
-		has_thumbnail = Launcher_LoadCustomThumbnailByName(custom_name, thumb_data - LAUNCHER_THUMB_BMP_HEADER);
-		if(!has_thumbnail && recents_view_active && (virtual_index < 10) &&
-		launcher_virtual_gamecode_valid[virtual_index])
-			has_thumbnail = Launcher_LoadThumbnailByGameCode(launcher_virtual_gamecode[virtual_index],
-			thumb_data - LAUNCHER_THUMB_BMP_HEADER);
-		else if(!has_thumbnail &&
-		(((len >= 3) && !strcasecmp(&(name[len - 3]), "gba")) ||
-		((len >= 3) && !strcasecmp(&(name[len - 3]), "agb"))))
-			has_thumbnail = Launcher_LoadThumbnailFromRomHeader(name, thumb_data - LAUNCHER_THUMB_BMP_HEADER);
+		name = pFilename_buffer[absolute_index - folder_total].filename;
+		strncpy(rom_dir, currentpath, sizeof(rom_dir) - 1);
+		rom_dir[sizeof(rom_dir) - 1] = '\0';
 	}
-	return has_thumbnail;
+
+	if(!name)
+		return 0;
+	return Launcher_LoadThumbnailForPath(name, rom_dir,
+		thumb_data - LAUNCHER_THUMB_BMP_HEADER, known_gamecode);
 }
 
 static void Launcher_LoadThumbCacheForIndex(LauncherThumbCache *cache, u32 absolute_index)
@@ -7414,17 +7568,6 @@ static void Launcher_CopyThumbCacheImage(LauncherThumbCache *dst, const Launcher
 		dmaCopy((void*)(src->thumb_data - LAUNCHER_THUMB_BMP_HEADER), (void*)(dst->thumb_data - LAUNCHER_THUMB_BMP_HEADER), Launcher_ThumbnailReadSize());
 }
 
-static u32 Launcher_IsGBAFile(const TCHAR *name)
-{
-	u32 len;
-	if(!name)
-		return 0;
-	len = strlen(name);
-	if(len < 3)
-		return 0;
-	return !strcasecmp(&(name[len - 3]), "gba") || ((len >= 3) && !strcasecmp(&(name[len - 3]), "agb"));
-}
-
 static u32 Launcher_ShouldUsePreviewPanel(const LauncherEntryInfo *info)
 {
 	if(!info || !info->name)
@@ -7435,7 +7578,7 @@ static u32 Launcher_ShouldUsePreviewPanel(const LauncherEntryInfo *info)
 		return 0;
 	if(info->is_folder)
 		return 0;
-	return Launcher_IsGBAFile(info->name);
+	return Launcher_IsLaunchableFilename(info->name);
 }
 
 static const u16 *Launcher_GetPreviewSourceForEntry(const LauncherEntryInfo *info)
@@ -7444,7 +7587,7 @@ static const u16 *Launcher_GetPreviewSourceForEntry(const LauncherEntryInfo *inf
 		return 0;
 	if(info->has_thumbnail)
 		return (const u16*)info->thumb_data;
-	if(!info->is_folder && Launcher_IsGBAFile(info->name))
+	if(!info->is_folder && Launcher_IsLaunchableFilename(info->name))
 		return Launcher_NotFoundImage();
 	return 0;
 }
@@ -12625,7 +12768,7 @@ static void Launcher_DrawStartLastThumb(int x, int y)
 
     if(Launcher_GetStartGameEntry(recent_path, sizeof(recent_path), recent_name, sizeof(recent_name)))
     {
-        use_favourite_cache = launcher_start_uses_favourites && launcher_favourite_count && Launcher_IsGbaFilename(recent_name);
+        use_favourite_cache = launcher_start_uses_favourites && launcher_favourite_count && Launcher_IsLaunchableFilename(recent_name);
         if(use_favourite_cache)
             cached_preview = Launcher_StartPreviewCachedImage(launcher_favourite_index);
         else
@@ -12663,10 +12806,10 @@ static void Launcher_DrawStartLastThumb(int x, int y)
         else
             Launcher_DrawPicClipStride(launcher_side_preview_left, thumb_w, x, y, thumb_w, thumb_h);
     }
-    else if(recent_name[0] && !Launcher_IsGbaFilename(recent_name))
+    else if(recent_name[0] && !Launcher_IsLaunchableFilename(recent_name))
     {
-        /* Non-GBA last-played entries do not have 120x80 thumbnails.  Show
-           their normal file icon instead of the GBA missing-thumbnail plate. */
+        /* Non-launchable files retain their normal icon.  Supported ROMs and
+           plugins use mirrored artwork or the full-size fallback above. */
         Launcher_DrawStartFileIconInThumbBox(recent_name, x, y, thumb_w, thumb_h);
     }
     else
@@ -15764,6 +15907,10 @@ if (is_EMU == 0xff)
 		ShowTime(SD_list,0);
 	}	//3
 load_file:
+	/* The shared PSRAM read area is about to be reused for the ROM load.
+	   Invalidate thumbnail/list-art entries before launching so no cached
+	   artwork can survive into a subsequent folder redraw. */
+	Launcher_ResetThumbCache();
 
 	UIAudio_StopForSharedBufferUse();
 	Clear(0, 0, 240, 160, gl_color_cheat_black, 1);
