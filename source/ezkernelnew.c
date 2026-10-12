@@ -5781,6 +5781,7 @@ static void Launcher_TagTransparentThumbnailPixels(u8 *dst, u32 read_size)
 {
 	u32 pixel_count;
 	u32 i;
+	u32 expected_top_down_height;
 	u16 *pixels;
 
 	if(!dst || read_size != Launcher_ThumbnailReadSize() ||
@@ -5793,10 +5794,15 @@ static void Launcher_TagTransparentThumbnailPixels(u8 *dst, u32 read_size)
 		return;
 	/* Do not transform a malformed or differently-sized BMP just because its
 	   reserved bytes happen to match. This loader supports 16-bit BI_RGB. */
+	/* The scraper writes top-down BMPs, whose signed height is negative. */
+	expected_top_down_height = (u32)(-(s32)Launcher_ThumbnailSourceHeight());
 	if(dst[18] != (u8)(Launcher_ThumbnailSourceWidth() & 0xFF) ||
 	dst[19] != (u8)((Launcher_ThumbnailSourceWidth() >> 8) & 0xFF) ||
-	dst[22] != (u8)(Launcher_ThumbnailSourceHeight() & 0xFF) ||
-	dst[23] != (u8)((Launcher_ThumbnailSourceHeight() >> 8) & 0xFF) ||
+	dst[20] != 0 || dst[21] != 0 ||
+	dst[22] != (u8)(expected_top_down_height & 0xFF) ||
+	dst[23] != (u8)((expected_top_down_height >> 8) & 0xFF) ||
+	dst[24] != (u8)((expected_top_down_height >> 16) & 0xFF) ||
+	dst[25] != (u8)((expected_top_down_height >> 24) & 0xFF) ||
 	dst[28] != 16 || dst[29] != 0 || dst[30] != 0 || dst[31] != 0 ||
 	dst[32] != 0 || dst[33] != 0)
 		return;
