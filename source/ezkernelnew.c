@@ -2786,9 +2786,15 @@ static void Launcher_DrawListArtSelectionChange(u32 show_offset, u32 file_select
 		return;
 	}
 
+	/* When replacing a drawn thumbnail, restore its backing rows first. This
+	   prevents transparent pixels in the next image from exposing stale pixels
+	   left by the previous thumbnail. While new artwork is pending, keep the
+	   old overlay until a replacement is ready. */
+	if(old_screen_has_art && art_ready)
+		Launcher_CopyCachedRowsBehindArt();
+
 	if(old_screen_has_art && !selected_has_art)
 	{
-		Launcher_CopyCachedRowsBehindArt();
 		/* Restoring the old artwork footprint is not enough when the previous
 		   selection row sits elsewhere on the screen.  Restore that row too so
 		   its highlight cannot survive an artwork-to-no-art transition. */
@@ -2850,7 +2856,9 @@ static void Launcher_DrawListArtScrolledBody(u32 show_offset, u32 file_select, i
 	   visible row from its absolute background slice instead of moving pixels
 	   already drawn in VRAM. Keep the old artwork overlay only while a pending
 	   thumbnail is resolved, then replace it as the final drawing operation. */
-	preserve_art = old_screen_has_art && selected_has_art;
+	/* Preserve the old overlay only while the replacement is pending. Once
+	   the new thumbnail is ready, redraw the row backgrounds beneath it. */
+	preserve_art = old_screen_has_art && selected_has_art && !art_ready;
 	Launcher_BuildAllCachedListRows(show_offset, file_select, selected_has_art);
 	Launcher_BuildSelectedListRowScratch(show_offset, file_select, selected_has_art);
 	Launcher_CopyAllCachedListRows(preserve_art, file_select);
@@ -8051,7 +8059,10 @@ static u32 Launcher_ServicePendingListArt(u32 show_offset, u32 file_select)
 		return 1;
 	}
 
-	if(old_screen_has_art && !selected_has_art)
+	/* This function runs once the new artwork load is resolved. Clear the old
+	   overlay even when the replacement also has art; transparent pixels must
+	   show the underlying list, not pixels from the previous thumbnail. */
+	if(old_screen_has_art)
 		Launcher_CopyCachedRowsBehindArt();
 	Launcher_BuildSelectedListRowScratch(show_offset, file_select, selected_has_art);
 	Launcher_CopySelectedListRowScratch(file_select, selected_has_art);
