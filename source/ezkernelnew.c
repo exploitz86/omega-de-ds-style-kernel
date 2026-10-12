@@ -6969,6 +6969,10 @@ static void Launcher_DrawPreparedHorizontalSidePreview(u16 *src, int x, int y, i
 		stride = 40;
 	}
 
+	/* Side previews are redrawn while scrolling. Restore their full image area
+	   before drawing transparency-aware artwork so margins cannot reveal the
+	   previous frame's pixels. The helper redraws the border after this restore. */
+	Launcher_RestoreBGClip((u16*)Launcher_GetBGImage(), draw_x, draw_y, draw_w, draw_h);
 	Launcher_DrawPreparedHorizontalArtwork(src, stride, draw_x, draw_y, draw_w, draw_h, 0);
 }
 
@@ -8766,6 +8770,10 @@ static void Draw_ModernLauncher_SD_Vertical_State(u32 show_offset, u32 file_sele
 			Launcher_RestoreBGClip((u16*)Launcher_GetBGImage(), thumb_x + thumb_w, thumb_y - 1, 1, thumb_h + 2);
 			Launcher_RestoreBGClip((u16*)Launcher_GetBGImage(), thumb_x, thumb_y, 14, thumb_h);
 			Launcher_RestoreBGClip((u16*)Launcher_GetBGImage(), thumb_x + 70, thumb_y, 14, thumb_h);
+			/* The vertical selected preview is pre-scaled, so restore its complete
+			   image footprint before transparency skips pixels. This preserves the
+			   vertical background artwork behind the transparent margins. */
+			Launcher_RestoreBGClip((u16*)Launcher_GetBGImage(), thumb_x + 14, thumb_y, 56, 56);
 			Launcher_DrawPicClipStride(launcher_vert_selected_scaled + 14, 84, thumb_x + 14, thumb_y, 56, 56);
 			Launcher_FinishCarouselArtwork(thumb_x + 14, thumb_y, 56, 56);
 		}
@@ -8775,6 +8783,9 @@ static void Draw_ModernLauncher_SD_Vertical_State(u32 show_offset, u32 file_sele
 			Launcher_RestoreBGClip((u16*)Launcher_GetBGImage(), thumb_x - 1, thumb_y + thumb_h, thumb_w + 2, 1);
 			Launcher_RestoreBGClip((u16*)Launcher_GetBGImage(), thumb_x - 1, thumb_y - 1, 1, thumb_h + 2);
 			Launcher_RestoreBGClip((u16*)Launcher_GetBGImage(), thumb_x + thumb_w, thumb_y - 1, 1, thumb_h + 2);
+			/* Clear stale pixels throughout the selected title-art footprint before
+			   drawing a replacement that may contain transparent pixels. */
+			Launcher_RestoreBGClip((u16*)Launcher_GetBGImage(), thumb_x, thumb_y, thumb_w, thumb_h);
 			Launcher_DrawPicClipStride(launcher_vert_selected_scaled, 84, thumb_x, thumb_y, thumb_w, thumb_h);
 			Launcher_FinishCarouselArtwork(thumb_x, thumb_y, thumb_w, thumb_h);
 		}
