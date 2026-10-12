@@ -124,6 +124,15 @@ static u32 launcher_start_title_scroll_frame = 0;
 #define LAUNCHER_LIST_ART_INPUT_QUEUE_SIZE 4
 #define LAUNCHER_LIST_ART_BUFFERABLE_KEYS (KEY_A | KEY_B)
 #define LAUNCHER_THUMB_BMP_HEADER 0x36
+/* Marked artwork stores "DST1" in the BMP reserved header bytes (6..9).
+   Tagged pixels use 0x8000 in RAM as a transparent sentinel; ordinary BMPs
+   and the existing GBA/CUSTOM collections are left byte-for-byte unchanged. */
+#define LAUNCHER_THUMB_BMP_ALPHA_MARKER_OFFSET 6
+#define LAUNCHER_THUMB_BMP_ALPHA_MARKER_0 'D'
+#define LAUNCHER_THUMB_BMP_ALPHA_MARKER_1 'S'
+#define LAUNCHER_THUMB_BMP_ALPHA_MARKER_2 'T'
+#define LAUNCHER_THUMB_BMP_ALPHA_MARKER_3 '1'
+#define LAUNCHER_THUMB_TRANSPARENT_SENTINEL 0x8000
 #define LAUNCHER_CUSTOM_THUMB_MANIFEST_MAX 256
 #define LAUNCHER_SYSTEM_NAME_DISPLAY_MAX 11
 #define LAUNCHER_THEME_MODE_LIGHT 0
@@ -5764,13 +5773,55 @@ static u16 Launcher_ListArtTakeInput(void)
 	return key;
 }
 
+/* Reserved BMP header bytes identify thumbnails whose all-black padding is
+   intended to be transparent. We tag only zero-valued pixels in RAM using
+   0x8000, which is outside the RGB555 colour range. The disk BMP stays a
+   standard 16-bit file, and unmarked legacy/GBA/CUSTOM files are untouched. */
+static void Launcher_TagTransparentThumbnailPixels(u8 *dst, u32 read_size)
+{
+	u32 pixel_count;
+	u32 i;
+	u16 *pixels;
+
+	if(!dst || read_size != Launcher_ThumbnailReadSize() ||
+	read_size < LAUNCHER_THUMB_BMP_HEADER)
+		return;
+	if(dst[LAUNCHER_THUMB_BMP_ALPHA_MARKER_OFFSET + 0] != LAUNCHER_THUMB_BMP_ALPHA_MARKER_0 ||
+	dst[LAUNCHER_THUMB_BMP_ALPHA_MARKER_OFFSET + 1] != LAUNCHER_THUMB_BMP_ALPHA_MARKER_1 ||
+	dst[LAUNCHER_THUMB_BMP_ALPHA_MARKER_OFFSET + 2] != LAUNCHER_THUMB_BMP_ALPHA_MARKER_2 ||
+	dst[LAUNCHER_THUMB_BMP_ALPHA_MARKER_OFFSET + 3] != LAUNCHER_THUMB_BMP_ALPHA_MARKER_3)
+		return;
+	/* Do not transform a malformed or differently-sized BMP just because its
+	   reserved bytes happen to match. This loader supports 16-bit BI_RGB. */
+	if(dst[18] != (u8)(Launcher_ThumbnailSourceWidth() & 0xFF) ||
+	dst[19] != (u8)((Launcher_ThumbnailSourceWidth() >> 8) & 0xFF) ||
+	dst[22] != (u8)(Launcher_ThumbnailSourceHeight() & 0xFF) ||
+	dst[23] != (u8)((Launcher_ThumbnailSourceHeight() >> 8) & 0xFF) ||
+	dst[28] != 16 || dst[29] != 0 || dst[30] != 0 || dst[31] != 0 ||
+	dst[32] != 0 || dst[33] != 0)
+		return;
+
+	pixel_count = Launcher_ThumbnailSourceWidth() * Launcher_ThumbnailSourceHeight();
+	pixels = (u16*)(dst + LAUNCHER_THUMB_BMP_HEADER);
+	for(i = 0; i < pixel_count; i++)
+	{
+		if(pixels[i] == 0)
+			pixels[i] = LAUNCHER_THUMB_TRANSPARENT_SENTINEL;
+	}
+}
+
 static u32 Launcher_ReadThumbnailBytes(FIL *file, u8 *dst, u32 read_size, UINT *read_out)
 {
 	u32 res = FR_OK;
 	u32 total = 0;
 
 	if(!launcher_list_art_input_capture)
-		return f_read(file, dst, read_size, read_out);
+	{
+		res = f_read(file, dst, read_size, read_out);
+		if(res == FR_OK && read_out && *read_out == read_size)
+			Launcher_TagTransparentThumbnailPixels(dst, read_size);
+		return res;
+	}
 
 	while(total < read_size)
 	{
@@ -5787,6 +5838,8 @@ static u32 Launcher_ReadThumbnailBytes(FIL *file, u8 *dst, u32 read_size, UINT *
 	}
 	if(read_out)
 		*read_out = (UINT)total;
+	if(res == FR_OK && total == read_size)
+		Launcher_TagTransparentThumbnailPixels(dst, read_size);
 	return res;
 }
 
@@ -6348,9 +6401,34 @@ static void Launcher_DrawPicClipStride(const u16 *src, int src_stride, int x, in
 
 	for(row = 0; row < draw_h; row++)
 	{
-		dmaCopy((void*)(src + ((src_y + row) * src_stride) + src_x),
-		(void*)(dst_base + ((y + row) * 240) + x),
-		draw_w * 2);
+		const u16 *src_row = src + ((src_y + row) * src_stride) + src_x;
+		vu16 *dst_row = dst_base + ((y + row) * 240) + x;
+		int col;
+		u32 has_transparent_pixels = 0;
+
+		/* Keep the fast DMA path for ordinary art. Only marked thumbnails
+		   contain the 0x8000 transparent sentinel after loading. */
+		for(col = 0; col < draw_w; col++)
+		{
+			if(src_row[col] == LAUNCHER_THUMB_TRANSPARENT_SENTINEL)
+			{
+				has_transparent_pixels = 1;
+				break;
+			}
+		}
+		if(!has_transparent_pixels)
+		{
+			dmaCopy((void*)src_row, (void*)dst_row, draw_w * 2);
+		}
+		else
+		{
+			for(col = 0; col < draw_w; col++)
+			{
+				u16 pixel = src_row[col];
+				if(pixel != LAUNCHER_THUMB_TRANSPARENT_SENTINEL)
+					dst_row[col] = pixel;
+			}
+		}
 	}
 }
 
@@ -6391,9 +6469,12 @@ static void Launcher_DrawScaledThumbClip(const u16 *src, int src_w, int src_h, i
 		{
 			int screen_x = x + dst_x;
 			int src_x = (dst_x * src_w) / w;
+			u16 pixel;
 			if(screen_x < 0 || screen_x >= 240)
 				continue;
-			dst_base[screen_y * 240 + screen_x] = src[src_y * src_w + src_x];
+			pixel = src[src_y * src_w + src_x];
+			if(pixel != LAUNCHER_THUMB_TRANSPARENT_SENTINEL)
+				dst_base[screen_y * 240 + screen_x] = pixel;
 		}
 	}
 }
@@ -6452,9 +6533,35 @@ static void Launcher_DrawPreparedThumbMasked(const u16 *src, int src_stride, int
 		if(start_x >= end_x)
 			continue;
 
-		dmaCopy((void*)(src + row * src_stride + start_x),
-		(void*)(dst_base + screen_y * 240 + x + start_x),
-		(end_x - start_x) * 2);
+		{
+			const u16 *src_row = src + row * src_stride + start_x;
+			vu16 *dst_row = dst_base + screen_y * 240 + x + start_x;
+			int col;
+			u32 has_transparent_pixels = 0;
+			int span = end_x - start_x;
+
+			for(col = 0; col < span; col++)
+			{
+				if(src_row[col] == LAUNCHER_THUMB_TRANSPARENT_SENTINEL)
+				{
+					has_transparent_pixels = 1;
+					break;
+				}
+			}
+			if(!has_transparent_pixels)
+			{
+				dmaCopy((void*)src_row, (void*)dst_row, span * 2);
+			}
+			else
+			{
+				for(col = 0; col < span; col++)
+				{
+					u16 pixel = src_row[col];
+					if(pixel != LAUNCHER_THUMB_TRANSPARENT_SENTINEL)
+						dst_row[col] = pixel;
+				}
+			}
+		}
 	}
 }
 
