@@ -7004,6 +7004,12 @@ static void Launcher_DrawHorizontalSelectedPreview(const u16 *src, int src_w, in
 		}
 	}
 
+	/* The selected preview is redrawn in place while the previous selection may
+	   still be visible in VRAM. Restore the actual launcher background beneath
+	   the entire image footprint before transparent pixels are skipped. Keep the
+	   surrounding preview panel and its border intact. */
+	Launcher_RestoreBGClip((u16*)Launcher_GetBGImage(), draw_x, draw_y, draw_w, draw_h);
+
 	if((src_w == draw_w) && (src_h == draw_h))
 		Launcher_DrawPreparedHorizontalArtwork(src, src_w, draw_x, draw_y, draw_w, draw_h, 1);
 	else
