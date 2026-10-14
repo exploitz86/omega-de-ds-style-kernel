@@ -16201,7 +16201,7 @@ load_file:
 			ShowbootProgress(gl_loading_game);
 
 				Send_FATbuffer(FAT_table_buffer,0);
-				GBApatch_Cleanrom(PSRAMBase_S98,gamefilesize);
+				GBApatch_Cleanrom((u32*)PSRAMBase_S98,gamefilesize);
 				//wait_btn();
 			if(key_L)
 				reset_choice = !gl_toggle_reset;
@@ -16267,7 +16267,7 @@ load_file:
 						}
 					}
 			Patch_SpecialROM_sleepmode();//
-			GBApatch_PSRAM(PSRAMBase_S98,gamefilesize);
+			GBApatch_PSRAM((u32*)PSRAMBase_S98,gamefilesize);
 				}
 				else{//no select switch ,CLEAN
 					Send_FATbuffer(FAT_table_buffer,0);//Loading rom
