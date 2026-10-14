@@ -419,7 +419,8 @@ void IWRAM_CODE Save_SET_info(u16 * SET_info_buffer,u32 buffersize)
 void IWRAM_CODE Read_NOR_info()
 {
 	register u32 loopwrite ;
-	for(loopwrite=0;loopwrite<sizeof(FM_NOR_FS)*0x40;loopwrite++)
+	/* The destination is read as halfwords, so bound the loop in halfwords too. */
+	for(loopwrite=0;loopwrite<sizeof(pNorFS)/(sizeof(u16));loopwrite++)
 	{
 		((u16*)pNorFS)[loopwrite] = *((vu16 *)(FlashBase_S71+NOR_info_offset+loopwrite*2));
 	}

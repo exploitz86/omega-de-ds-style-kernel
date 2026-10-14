@@ -321,6 +321,8 @@ void SetTrimSize(u8* buffer,u32 romsize,u32 iSize,u32 mode,BYTE saveMODE)
 	if(gl_cheat_on==1){
 		PATCH_LENGTH = 0x2000;
 	}
+	if(buffer == NULL || romsize == 0 || iSize == 0)
+		return;
 
   if(0)
   {
@@ -328,9 +330,11 @@ void SetTrimSize(u8* buffer,u32 romsize,u32 iSize,u32 mode,BYTE saveMODE)
   }
   else
   {
-	  byte=buffer[(romsize-1)%iSize-1];
-	  bottom=(romsize-1)%iSize-1;
-	  if(bottom-16 > PATCH_LENGTH){
+	  bottom=(romsize-1)%iSize;
+	  if(bottom > 0)
+		  bottom--;
+	  byte=buffer[bottom];
+	  if(bottom > PATCH_LENGTH+16){
 			top=bottom-PATCH_LENGTH-16;
 		}
 		else{
