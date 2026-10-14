@@ -12,7 +12,6 @@
 
 #include "ez_define.h"
 #include "ff.h"
-#include "settings_store.h"
 #include "draw.h"
 #include "ezkernel.h"
 #include "Ezcard_OP.h"
@@ -753,11 +752,7 @@ static u32 Launcher_SettingsReadValue(const char *key, char *out, u32 out_size)
 		return 0;
 
 	out[0] = '\0';
-	/* Preserve the normal startup read path. The journal recovery code performs
-	   extra filesystem checks and cleanup, so only invoke it when the canonical
-	   settings file cannot be opened (for example, after an interrupted replace). */
-	if(f_open(&f, SETTINGS_FILE, FA_READ) != FR_OK &&
-	   LauncherSettingsStoreOpenRead(&f, SETTINGS_FILE) != FR_OK)
+	if(f_open(&f, SETTINGS_FILE, FA_READ) != FR_OK)
 		return 0;
 
 	while(f_gets(line, sizeof(line), &f) != NULL)
@@ -10927,98 +10922,96 @@ static u16 Launcher_KeyFromNameOrNumber(const char *text)
 
 static void Launcher_SaveUnifiedSettings(void)
 {
-	LauncherSettingsWriter writer;
+	FIL f;
 
     f_mkdir("/SYSTEM");
-    if(LauncherSettingsStoreBegin(&writer, SETTINGS_FILE))
+    if(f_open(&f, SETTINGS_FILE, FA_WRITE | FA_CREATE_ALWAYS) == FR_OK)
     {
-        LauncherSettingsStorePrintf(&writer, "# DS Style settings\n");
-        LauncherSettingsStorePrintf(&writer, "# Edit the value after '='. Unknown lines are ignored.\n\n");
-        LauncherSettingsStorePrintf(&writer, "# Options: Light, Dark");
+        f_printf(&f, "# DS Style settings\n");
+        f_printf(&f, "# Edit the value after '='. Unknown lines are ignored.\n\n");
+        f_printf(&f, "# Options: Light, Dark");
 #if LAUNCHER_CUSTOM_THEME_ENABLED
-        LauncherSettingsStorePrintf(&writer, ", Custom");
+        f_printf(&f, ", Custom");
 #endif
-        LauncherSettingsStorePrintf(&writer, "\n");
-        LauncherSettingsStorePrintf(&writer, "# Theme controls which full-screen background set the launcher uses.\n");
-        LauncherSettingsStorePrintf(&writer, "Theme = %s\n", Launcher_ThemeModeName());
-        LauncherSettingsStorePrintf(&writer, "\n# Options: Pale Blue, Light Blue, Blue, Dark Blue, Green, Pale Green, Bright Green, Lime, Yellow, Red, Orange, Brown, Pink, Pale Pink, Magenta, Purple");
+        f_printf(&f, "\n");
+        f_printf(&f, "# Theme controls which full-screen background set the launcher uses.\n");
+        f_printf(&f, "Theme = %s\n", Launcher_ThemeModeName());
+        f_printf(&f, "\n# Options: Pale Blue, Light Blue, Blue, Dark Blue, Green, Pale Green, Bright Green, Lime, Yellow, Red, Orange, Brown, Pink, Pale Pink, Magenta, Purple");
 #if LAUNCHER_THEME_COUNT > 16
-        LauncherSettingsStorePrintf(&writer, ", Custom");
+        f_printf(&f, ", Custom");
 #endif
-        LauncherSettingsStorePrintf(&writer, "\n");
-        LauncherSettingsStorePrintf(&writer, "# Colour controls the top bar, icons, and selection colour.\n");
-        LauncherSettingsStorePrintf(&writer, "Colour = %s\n", Launcher_ThemeName());
-        LauncherSettingsStorePrintf(&writer, "\n# Load style reads .bin files from /SYSTEM/KERNELS.\n");
-        LauncherSettingsStorePrintf(&writer, "# Select one from the settings menu to prepare it for installation.\n");
-        LauncherSettingsStorePrintf(&writer, "\n# Options: On, Off\n");
-        LauncherSettingsStorePrintf(&writer, "# Hide system files keeps kernel and metadata files out of the root file browser.\n");
-        LauncherSettingsStorePrintf(&writer, "Hide system files = %s\n", launcher_hide_system_files ? "On" : "Off");
-        LauncherSettingsStorePrintf(&writer, "\n# Options: On, Off\n");
-        LauncherSettingsStorePrintf(&writer, "# List folders keeps non-game folders in list view.\n");
-        LauncherSettingsStorePrintf(&writer, "List folders = %s\n", launcher_list_folders ? "On" : "Off");
-        LauncherSettingsStorePrintf(&writer, "\n# Options: On, Off\n");
-        LauncherSettingsStorePrintf(&writer, "# Clean list removes extensions/brackets and hides right-side file details in list view.\n");
-        LauncherSettingsStorePrintf(&writer, "Clean list = %s\n", launcher_clean_list ? "On" : "Off");
-        LauncherSettingsStorePrintf(&writer, "\n# Options: 24 hour, 12 hour\n");
-        LauncherSettingsStorePrintf(&writer, "# Clock format controls the top bar clock display.\n");
-        LauncherSettingsStorePrintf(&writer, "Clock format = %s\n", launcher_clock_24_hour ? "24 hour" : "12 hour");
-        LauncherSettingsStorePrintf(&writer, "\n# Options: On, Off\n");
-        LauncherSettingsStorePrintf(&writer, "Start screen = %s\n", Launcher_StartEnabledSettingName());
-        LauncherSettingsStorePrintf(&writer, "\n# Options: Start, SD, NOR, Last game, Recents, Favourites\n");
-        LauncherSettingsStorePrintf(&writer, "# Boot to chooses the first screen shown after startup.\n");
-        LauncherSettingsStorePrintf(&writer, "Boot to = %s\n", Launcher_BootToSettingName());
-        LauncherSettingsStorePrintf(&writer, "\n# Options: Last played, Favourites\n");
-        LauncherSettingsStorePrintf(&writer, "Start screen source = %s\n", Launcher_StartSourceSettingName());
-        LauncherSettingsStorePrintf(&writer, "\n# Options: List, List + art, Horizontal, Vertical\n");
-        LauncherSettingsStorePrintf(&writer, "# View mode chooses how files are displayed.\n");
-        LauncherSettingsStorePrintf(&writer, "View mode = %s\n", Launcher_ThumbnailSettingName());
-        LauncherSettingsStorePrintf(&writer, "\n# Options: Top, Center, Bottom\n");
-        LauncherSettingsStorePrintf(&writer, "# List art chooses where artwork appears in List + art view.\n");
-        LauncherSettingsStorePrintf(&writer, "List art = %s\n", Launcher_ListArtPositionSettingName());
-        LauncherSettingsStorePrintf(&writer, "\n# Options: Title, Box\n");
-        LauncherSettingsStorePrintf(&writer, "# Title uses /SYSTEM/IMGS thumbnails. Box uses /SYSTEM/IMGS2 thumbnails.\n");
-        LauncherSettingsStorePrintf(&writer, "Thumbnails = %s\n",
+        f_printf(&f, "\n");
+        f_printf(&f, "# Colour controls the top bar, icons, and selection colour.\n");
+        f_printf(&f, "Colour = %s\n", Launcher_ThemeName());
+        f_printf(&f, "\n# Load style reads .bin files from /SYSTEM/KERNELS.\n");
+        f_printf(&f, "# Select one from the settings menu to prepare it for installation.\n");
+        f_printf(&f, "\n# Options: On, Off\n");
+        f_printf(&f, "# Hide system files keeps kernel and metadata files out of the root file browser.\n");
+        f_printf(&f, "Hide system files = %s\n", launcher_hide_system_files ? "On" : "Off");
+        f_printf(&f, "\n# Options: On, Off\n");
+        f_printf(&f, "# List folders keeps non-game folders in list view.\n");
+        f_printf(&f, "List folders = %s\n", launcher_list_folders ? "On" : "Off");
+        f_printf(&f, "\n# Options: On, Off\n");
+        f_printf(&f, "# Clean list removes extensions/brackets and hides right-side file details in list view.\n");
+        f_printf(&f, "Clean list = %s\n", launcher_clean_list ? "On" : "Off");
+        f_printf(&f, "\n# Options: 24 hour, 12 hour\n");
+        f_printf(&f, "# Clock format controls the top bar clock display.\n");
+        f_printf(&f, "Clock format = %s\n", launcher_clock_24_hour ? "24 hour" : "12 hour");
+        f_printf(&f, "\n# Options: On, Off\n");
+        f_printf(&f, "Start screen = %s\n", Launcher_StartEnabledSettingName());
+        f_printf(&f, "\n# Options: Start, SD, NOR, Last game, Recents, Favourites\n");
+        f_printf(&f, "# Boot to chooses the first screen shown after startup.\n");
+        f_printf(&f, "Boot to = %s\n", Launcher_BootToSettingName());
+        f_printf(&f, "\n# Options: Last played, Favourites\n");
+        f_printf(&f, "Start screen source = %s\n", Launcher_StartSourceSettingName());
+        f_printf(&f, "\n# Options: List, List + art, Horizontal, Vertical\n");
+        f_printf(&f, "# View mode chooses how files are displayed.\n");
+        f_printf(&f, "View mode = %s\n", Launcher_ThumbnailSettingName());
+        f_printf(&f, "\n# Options: Top, Center, Bottom\n");
+        f_printf(&f, "# List art chooses where artwork appears in List + art view.\n");
+        f_printf(&f, "List art = %s\n", Launcher_ListArtPositionSettingName());
+        f_printf(&f, "\n# Options: Title, Box\n");
+        f_printf(&f, "# Title uses /SYSTEM/IMGS thumbnails. Box uses /SYSTEM/IMGS2 thumbnails.\n");
+        f_printf(&f, "Thumbnails = %s\n",
                  (launcher_thumbnail_style == LAUNCHER_THUMB_STYLE_BOX) ? "Box" : "Title");
-        LauncherSettingsStorePrintf(&writer, "\n# Options: Off, Accent, Black, Grey, White\n");
-        LauncherSettingsStorePrintf(&writer, "# Art border draws a one-pixel outline around the selected carousel artwork.\n");
-        LauncherSettingsStorePrintf(&writer, "Art border = %s\n", Launcher_ArtBorderSettingName());
-        LauncherSettingsStorePrintf(&writer, "\n# Options: Full, No Start, Off\n");
-        LauncherSettingsStorePrintf(&writer, "# Rounded corners rounds artwork. No Start keeps the Start screen artwork square.\n");
-        LauncherSettingsStorePrintf(&writer, "Rounded corners = %s\n", Launcher_RoundedCornersSettingName());
+        f_printf(&f, "\n# Options: Off, Accent, Black, Grey, White\n");
+        f_printf(&f, "# Art border draws a one-pixel outline around the selected carousel artwork.\n");
+        f_printf(&f, "Art border = %s\n", Launcher_ArtBorderSettingName());
+        f_printf(&f, "\n# Options: Full, No Start, Off\n");
+        f_printf(&f, "# Rounded corners rounds artwork. No Start keeps the Start screen artwork square.\n");
+        f_printf(&f, "Rounded corners = %s\n", Launcher_RoundedCornersSettingName());
 #if LAUNCHER_VERT_SIDE_CUSTOM_ENABLED
-        LauncherSettingsStorePrintf(&writer, "\n# Options: Center, Left, Right, Custom\n");
+        f_printf(&f, "\n# Options: Center, Left, Right, Custom\n");
 #else
-        LauncherSettingsStorePrintf(&writer, "\n# Options: Center, Left, Right\n");
+        f_printf(&f, "\n# Options: Center, Left, Right\n");
 #endif
-        LauncherSettingsStorePrintf(&writer, "# Vertical side controls the small previews in vertical carousel view.\n");
-        LauncherSettingsStorePrintf(&writer, "Vertical side = %s\n", Launcher_VerticalSideSettingName());
+        f_printf(&f, "# Vertical side controls the small previews in vertical carousel view.\n");
+        f_printf(&f, "Vertical side = %s\n", Launcher_VerticalSideSettingName());
 #if LAUNCHER_HORZ_SIDE_CUSTOM_ENABLED
-        LauncherSettingsStorePrintf(&writer, "\n# Options: Center, Top, Bottom, Custom\n");
+        f_printf(&f, "\n# Options: Center, Top, Bottom, Custom\n");
 #else
-        LauncherSettingsStorePrintf(&writer, "\n# Options: Center, Top, Bottom\n");
+        f_printf(&f, "\n# Options: Center, Top, Bottom\n");
 #endif
-        LauncherSettingsStorePrintf(&writer, "# Horizontal side controls the small previews in horizontal carousel view.\n");
-        LauncherSettingsStorePrintf(&writer, "Horizontal side = %s\n", Launcher_HorizontalSideSettingName());
-        LauncherSettingsStorePrintf(&writer, "\n# Options: On, Off\n");
-        LauncherSettingsStorePrintf(&writer, "# Sounds controls launcher UI button sounds after startup.\n");
-        LauncherSettingsStorePrintf(&writer, "Sounds = %s\n", launcher_sounds_enabled ? "On" : "Off");
-        LauncherSettingsStorePrintf(&writer, "\n# Options: English (UK), English (US), Espa\303\261ol, Fran\303\247ais, Portugu\303\252s, Deutsch, T\303\274rk\303\247e, Italiano, Nederlands, Svenska, Suomi, Chinese\n");
-        LauncherSettingsStorePrintf(&writer, "Language = %s\n", Launcher_LanguageName());
-        LauncherSettingsStorePrintf(&writer, "\n# Options: Start, Select, L, A, B\n");
-        LauncherSettingsStorePrintf(&writer, "Quick start hotkey = %s\n", Launcher_KeyName((u8)gl_auto_start_key));
-        LauncherSettingsStorePrintf(&writer, "\n# Options: Clean, Addon\n");
-        LauncherSettingsStorePrintf(&writer, "Last launch mode = %s\n", (launcher_last_launch_mode == LAST_LAUNCH_MODE_ADDON) ? "Addon" : "Clean");
-        LauncherSettingsStorePrintf(&writer, "\n# Options: 0 or higher. 0 is the first favourite.\n");
-        LauncherSettingsStorePrintf(&writer, "Favourite index = %lu\n", launcher_favourite_index);
-        if(LauncherSettingsStoreCommit(&writer))
-        {
-			f_unlink(THEME_FILE);
-			f_unlink(FAVOURITE_INDEX_FILE);
-			f_unlink(START_SOURCE_FILE);
-			f_unlink(LAST_LAUNCH_MODE_FILE);
-			f_unlink(AUTO_START_KEY_FILE);
-			launcher_settings_migration_pending = 0;
-        }
+        f_printf(&f, "# Horizontal side controls the small previews in horizontal carousel view.\n");
+        f_printf(&f, "Horizontal side = %s\n", Launcher_HorizontalSideSettingName());
+        f_printf(&f, "\n# Options: On, Off\n");
+        f_printf(&f, "# Sounds controls launcher UI button sounds after startup.\n");
+        f_printf(&f, "Sounds = %s\n", launcher_sounds_enabled ? "On" : "Off");
+        f_printf(&f, "\n# Options: English (UK), English (US), Espa\303\261ol, Fran\303\247ais, Portugu\303\252s, Deutsch, T\303\274rk\303\247e, Italiano, Nederlands, Svenska, Suomi, Chinese\n");
+        f_printf(&f, "Language = %s\n", Launcher_LanguageName());
+        f_printf(&f, "\n# Options: Start, Select, L, A, B\n");
+        f_printf(&f, "Quick start hotkey = %s\n", Launcher_KeyName((u8)gl_auto_start_key));
+        f_printf(&f, "\n# Options: Clean, Addon\n");
+        f_printf(&f, "Last launch mode = %s\n", (launcher_last_launch_mode == LAST_LAUNCH_MODE_ADDON) ? "Addon" : "Clean");
+        f_printf(&f, "\n# Options: 0 or higher. 0 is the first favourite.\n");
+        f_printf(&f, "Favourite index = %lu\n", launcher_favourite_index);
+        f_close(&f);
+        f_unlink(THEME_FILE);
+        f_unlink(FAVOURITE_INDEX_FILE);
+        f_unlink(START_SOURCE_FILE);
+        f_unlink(LAST_LAUNCH_MODE_FILE);
+        f_unlink(AUTO_START_KEY_FILE);
+        launcher_settings_migration_pending = 0;
     }
 }
 

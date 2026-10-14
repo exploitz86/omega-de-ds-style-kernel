@@ -63,9 +63,6 @@ printf 'GBA rules: %s/gba_rules\n' "$devkitarm"
 printf '\nRunning production Makefile build (without cleanup)...\n'
 make
 
-printf '\nRunning FatFs settings persistence fault-injection scenarios...\n'
-scripts/test-settings-store-host.sh
-
 printf '\nRunning browser installer regression scenarios...\n'
 node tests/browser-installer.mjs
 
@@ -83,7 +80,7 @@ if command -v cppcheck >/dev/null 2>&1; then
 		--suppress=missingIncludeSystem \
 		--suppress=arithOperationsOnVoidPointer \
 		--inline-suppr --template=gcc \
-		source/Ezcard_OP.c source/GBApatch.c source/showcht.c source/ezkernelnew.c source/settings_store.c
+		source/Ezcard_OP.c source/GBApatch.c source/showcht.c source/ezkernelnew.c
 else
 	printf '\nCppcheck is not installed; skipping that optional check.\n'
 fi
