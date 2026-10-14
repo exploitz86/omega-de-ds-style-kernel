@@ -26,6 +26,27 @@ extern u32 iTrimSize;
 
 #define NOR_CAPACITY_BYTES 0x04000000UL
 #define NOR_BLOCK_SIZE     0x00020000UL
+#define NOR_MENU_WIDTH     168
+#define NOR_MENU_CROP_X    20
+#define NOR_MENU_CROP_Y    78
+#define NOR_PROGRESS_X     56
+#define NOR_PROGRESS_Y     103
+#define NOR_PROGRESS_W     128
+#define NOR_PROGRESS_H     13
+
+static void NOR_RestoreFormatProgressBackground(void)
+{
+	const u16 *menu = (const u16*)gImage_MENU;
+	u32 row;
+
+	// The menu art is 168 pixels wide; DrawPic uses its width as the source stride.
+	for(row = 0; row < NOR_PROGRESS_H; row++)
+	{
+		DrawPic((u16*)(menu + (NOR_MENU_CROP_Y + row) * NOR_MENU_WIDTH + NOR_MENU_CROP_X),
+			NOR_PROGRESS_X, NOR_PROGRESS_Y + row, NOR_PROGRESS_W, 1, 0, 0, 1);
+	}
+}
+
 //---------------------------------------------------------------
 void Chip_Reset()
 {
@@ -104,10 +125,10 @@ void Chip_Erase()
 		VBlankIntrWait();
 		VBlankIntrWait();
 		ShowTime(NOR_list,0);
-		DrawPic((u16*)(gImage_MENU+78*128*2), 56, 90+13, 128, 13, 0, 0, 1);//show menu pic
+		NOR_RestoreFormatProgressBackground();
 
 		itoa(count,msg,2);
-		DrawHZText12(msg,0,60,90+13,gl_color_text,1);
+		DrawHZText12(msg,0,60,NOR_PROGRESS_Y,gl_color_text,1);
 		count++;
 
 		VBlankIntrWait();
