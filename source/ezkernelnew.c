@@ -510,8 +510,10 @@ static const char favourites_virtual_path[] = "/Favourites";
 
 TCHAR plugin[100]; //pogoshell plugin
 
-u32 p_folder_select_show_offset[100]EWRAM_BSS;
-u32 p_folder_select_file_select[100]EWRAM_BSS;
+/* One selection slot per possible path byte safely covers every directory
+   depth representable by currentpath. */
+u32 p_folder_select_show_offset[MAX_path_len]EWRAM_BSS;
+u32 p_folder_select_file_select[MAX_path_len]EWRAM_BSS;
 u32 folder_select;
 u32 gl_nor_show_offset_saved;
 u32 gl_nor_file_select_saved;
@@ -4662,7 +4664,6 @@ u32 IWRAM_CODE Loadsavefile(TCHAR *filename)
 {
 	UINT ret;
 	UINT filesize;
-	UINT left;
 	FIL file;
 
 	switch(f_open(&file, filename, FA_READ))
@@ -4673,23 +4674,23 @@ u32 IWRAM_CODE Loadsavefile(TCHAR *filename)
 			if(filesize > 128*1024)
 				filesize = 128*1024;
 
-			SetRampage(0x0);
-
-			if(filesize>64*1024)
+			/* Stage the complete save before changing cartridge SRAM so a
+			   short or failed SD read cannot copy stale EWRAM contents. */
+			if(f_read(&file, pReadCache, filesize, &ret) != FR_OK || ret != filesize)
 			{
-		f_read(&file, pReadCache, 64*1024, (UINT *)&ret);
-					WriteSram(SRAMSaver, pReadCache , 64*1024 );
-					SetRampage(0x10);
-					left = filesize - 64*1024 ;
-		f_read(&file, pReadCache, left, (UINT *)&ret);
-					WriteSram(SRAMSaver, pReadCache , left );
+				f_close(&file);
+				return 0;
+			}
+			f_close(&file);
+			SetRampage(0x0);
+			if(filesize > 64*1024)
+			{
+				WriteSram(SRAMSaver, pReadCache, 64*1024);
+				SetRampage(0x10);
+				WriteSram(SRAMSaver, pReadCache + 64*1024, filesize - 64*1024);
 			}
 			else
-			{
-				f_read(&file, pReadCache, filesize, (UINT *)&ret);
-				WriteSram(SRAMSaver,pReadCache,filesize);
-			}
-	f_close(&file);
+				WriteSram(SRAMSaver, pReadCache, filesize);
 	SetRampage(0x0);
 	return 1;
     }
@@ -4701,6 +4702,10 @@ u32 IWRAM_CODE Loadsavefile(TCHAR *filename)
 u32 IWRAM_CODE Save_savefile(TCHAR *filename,u32 savesize)
 {
 	FIL file;
+	FRESULT write_result = FR_OK;
+	FRESULT close_result;
+	UINT written;
+	u32 ok = 1;
 	if(savesize==0) return 0xff;
 	u32 ret=f_open(&file, filename, FA_WRITE | FA_CREATE_ALWAYS);
 	switch(ret)
@@ -4708,7 +4713,6 @@ u32 IWRAM_CODE Save_savefile(TCHAR *filename,u32 savesize)
 		case FR_OK:
 		{
 			int i;
-			unsigned int written;
 			//memset(pReadCache,0xFF,0x200*4);
 			SetRampage(0x0);
 
@@ -4717,8 +4721,8 @@ u32 IWRAM_CODE Save_savefile(TCHAR *filename,u32 savesize)
 				ReadSram(SRAMSaver,pReadCache,savesize);
 				for(i=0;i<(savesize+0x1FF)/0x200 ;i++)
 				{
-		f_write(&file, pReadCache+0x200*i, 0x200, &written);
-		if(written != 0x200) break;
+					write_result = f_write(&file, pReadCache+0x200*i, 0x200, &written);
+					if(write_result != FR_OK || written != 0x200) { ok = 0; break; }
 		}
 			}
 			else
@@ -4729,32 +4733,42 @@ u32 IWRAM_CODE Save_savefile(TCHAR *filename,u32 savesize)
 
 					for(i=0;i<64*1024/0x800 ;i++)
 					{
-			f_write(&file, pReadCache+0x800*i, 0x200*4, &written);
-			if(written != 0x200*4) break;
+						write_result = f_write(&file, pReadCache+0x800*i, 0x200*4, &written);
+						if(write_result != FR_OK || written != 0x200*4) { ok = 0; break; }
 			}
-			SetRampage(0x10);
+				if(ok) SetRampage(0x10);
+				if(ok)
+				{
 					ReadSram(SRAMSaver, pReadCache , 64*1024 );
 
 					for(i=0;i<64*1024/0x800 ;i++)
 					{
-			f_write(&file, pReadCache+0x800*i, 0x200*4, &written);
-			if(written != 0x200*4) break;
+						write_result = f_write(&file, pReadCache+0x800*i, 0x200*4, &written);
+						if(write_result != FR_OK || written != 0x200*4) { ok = 0; break; }
 			}
+				}
 				}
 				else
 				{
 					ReadSram(SRAMSaver, pReadCache, savesize );
 					for(i=0;i<savesize/0x800 ;i++)
 					{
-			f_write(&file, pReadCache+0x800*i, 0x200*4, &written);
-			if(written != 0x200*4) break;
+						write_result = f_write(&file, pReadCache+0x800*i, 0x200*4, &written);
+						if(write_result != FR_OK || written != 0x200*4) { ok = 0; break; }
 			}
 				}
 		}
 
-	f_close(&file);
-
-	return 1;
+			SetRampage(0x0);
+			close_result = f_close(&file);
+			if(!ok || close_result != FR_OK)
+			{
+				/* This file was just created for a missing save. Do not leave a
+				   truncated file that a later launch could accept as a save. */
+				f_unlink(filename);
+				return 0;
+			}
+			return 1;
     }
     break;
     default:
@@ -4768,24 +4782,33 @@ u32 IWRAM_CODE LoadRTSfile(TCHAR *filename)
 	UINT filesize;
 	FIL file;
 	u32 page;
+	FRESULT close_result;
 
 	switch(f_open(&file, filename, FA_READ))
 	{
 		case FR_OK:
 		{
 			filesize = f_size(&file);
-			if(filesize > 0x70000)
-				filesize = 0x70000;
+			if(filesize != 0x70000)
+			{
+				f_close(&file);
+				return 0;
+			}
 
 			for(page = 0x40;page<0xB0;page += 0x10)
 			{
+				if(f_read(&file, pReadCache, 64*1024, &ret) != FR_OK || ret != 64*1024)
+				{
+					f_close(&file);
+					SetRampage(0x0);
+					return 0;
+				}
 				SetRampage(page);
-				f_read(&file, pReadCache, 64*1024, (UINT *)&ret);
 				WriteSram(SRAMSaver, pReadCache , 64*1024 );
 			}
-	f_close(&file);
-	SetRampage(0x0);
-	return 1;
+			close_result = f_close(&file);
+			SetRampage(0x0);
+			return close_result == FR_OK;
     }
     default:
 			return false;
@@ -4795,6 +4818,10 @@ u32 IWRAM_CODE LoadRTSfile(TCHAR *filename)
 u32 SavefileWrite(TCHAR *filename,u32 savesize)
 {
 	FIL file;
+	FRESULT write_result = FR_OK;
+	FRESULT close_result;
+	UINT written;
+	u32 ok = 1;
 	if(savesize==0) return 0xff;
 	u32 ret=f_open(&file, filename, FA_WRITE | FA_CREATE_ALWAYS);
 	switch(ret)
@@ -4802,29 +4829,28 @@ u32 SavefileWrite(TCHAR *filename,u32 savesize)
 		case FR_OK:
 		{
 			int i;
-			unsigned int written;
 			memset(pReadCache,0xFF,0x200*4);
 
 			if(savesize < 0x800)
 			{
 				for(i=0;i<(savesize+0x1FF)/0x200 ;i++)
 				{
-		f_write(&file, pReadCache, 0x200, &written);
-		if(written != 0x200) break;
+					write_result = f_write(&file, pReadCache, 0x200, &written);
+					if(write_result != FR_OK || written != 0x200) { ok = 0; break; }
 		}
 			}
 			else
 			{
 				for(i=0;i<(savesize+0x1FF)/0x800 ;i++)
 				{
-		f_write(&file, pReadCache, 0x200*4, &written);
-		if(written != 0x200*4) break;
+					write_result = f_write(&file, pReadCache, 0x200*4, &written);
+					if(write_result != FR_OK || written != 0x200*4) { ok = 0; break; }
 		}
 		}
 
-	f_close(&file);
+			close_result = f_close(&file);
 
-	return 1;
+			return (ok && close_result == FR_OK) ? 1 : 0;
     }
     break;
     default:
@@ -9125,9 +9151,7 @@ u8 Process_savefile(u32 is_EMU,TCHAR *pfilename,u32 gamefilesize,BYTE saveMODE)
 	}
 
 
-	// BUG: not all file types are of equal length. sometimes they are two characters such as "gg" or "gb". we need to account for this
-	// it was easy to hardcode upstream but since we have more flexibility with pogoshell an elegant solution is needed
-	// we do it with strrchr so that we get the last instance of the period and then we append new characters to it.
+	/* Find the final period so save extensions also work for short emulator suffixes. */
 
 	memcpy(savfilename,pfilename,100);
 	savfilename[sizeof(savfilename) - 1] = '\0';
@@ -9187,6 +9211,8 @@ u8 Process_savefile(u32 is_EMU,TCHAR *pfilename,u32 gamefilesize,BYTE saveMODE)
 	{
 		Bank_Switching(0);
 		res = Loadsavefile(savfilename);
+		if(!res)
+			return 5;
 
 		memset(SAV_info_buffer,0x00,sizeof(SAV_info_buffer));
 		SAV_info_buffer[0] = 0x11;
@@ -9215,6 +9241,9 @@ void Check_save_flag(void)
 	//check save
 	u16 readd;
 	u32 savefilesize;
+	u32 res;
+	u32 save_written = 0;
+	u32 discard_save = 0;
 	readd = Read_sav_info(0);
 	savefilesize = Read_sav_info(1)<<9;
 	if(readd==0x11)
@@ -9239,9 +9268,9 @@ void Check_save_flag(void)
 
 			if(gl_auto_save_sel){
 					DrawHZText12(gl_save_ing,0,47,88,gl_color_text,1);//use sure?gl_LSTART_help
-					f_mkdir(SAVER_FOLDER);//"/SAVER"
-					f_chdir(SAVER_FOLDER);
-					Save_savefile((TCHAR *)SAV_info_buffer,savefilesize);
+					res = f_mkdir(SAVER_FOLDER);//"/SAVER"
+					if((res == FR_OK || res == FR_EXIST) && f_chdir(SAVER_FOLDER) == FR_OK)
+						save_written = Save_savefile((TCHAR *)SAV_info_buffer,savefilesize);
 			}
 			else{
 				Show_MENU_btn();
@@ -9253,19 +9282,25 @@ void Check_save_flag(void)
 					if (keysdown & KEY_A) {
 						UIAudio_PlayAccept();
 						DrawHZText12(gl_save_ing,0,60,88,gl_color_text,1);//use sure?gl_LSTART_help
-						f_mkdir(SAVER_FOLDER);
-						f_chdir(SAVER_FOLDER);
-						Save_savefile((TCHAR *)SAV_info_buffer,savefilesize);
+						res = f_mkdir(SAVER_FOLDER);
+						if((res == FR_OK || res == FR_EXIST) && f_chdir(SAVER_FOLDER) == FR_OK)
+							save_written = Save_savefile((TCHAR *)SAV_info_buffer,savefilesize);
 						break;
 					}
 					else if(keysdown & KEY_B){
 						UIAudio_PlayBack();
+						discard_save = 1;
 						break;
 					}
 				}
 			}
-			memset(SAV_info_buffer,0x00,sizeof(SAV_info_buffer));//clean flag
-			Save_sav_info(SAV_info_buffer,0x200);
+			if(save_written || discard_save)
+			{
+				memset(SAV_info_buffer,0x00,sizeof(SAV_info_buffer));//clean flag
+				Save_sav_info(SAV_info_buffer,0x200);
+			}
+			else
+				Show_error_num(5);
 
 	}
 }
@@ -13989,7 +14024,7 @@ int main(void) {
 	REG_IME = 1;
 
 	u32 res;
-	u32 game_folder_total;
+	u32 game_folder_total = 0;
 	u32 file_select;
 	u32 show_offset;
 	u32 updata;
@@ -14120,6 +14155,7 @@ refind_file:
 		Launcher_RestoreSDState();
 		folder_total = 0;
 		game_total_SD = 0;
+		game_folder_total = 0;
 		launcher_sd_launchable_file_count = 0;
 
 		if(recents_view_active)
@@ -15371,18 +15407,23 @@ re_showfile:
 		if( show_offset+file_select <  folder_total)
 		{
 						TCHAR nextpath[MAX_path_len + 200];
+						int path_length;
 						if(strcmp(currentpath,"/") !=0)
-							snprintf(nextpath, sizeof(nextpath), "%s/%s", currentpath, pFolder[show_offset+file_select].filename);
+							path_length = snprintf(nextpath, sizeof(nextpath), "%s/%s", currentpath, pFolder[show_offset+file_select].filename);
 						else
-							snprintf(nextpath, sizeof(nextpath), "/%s", pFolder[show_offset+file_select].filename);
-						strncpy(currentpath, nextpath, sizeof(currentpath) - 1);
-						currentpath[sizeof(currentpath) - 1] = '\0';
-						res=f_chdir(currentpath);
+							path_length = snprintf(nextpath, sizeof(nextpath), "/%s", pFolder[show_offset+file_select].filename);
+						if(path_length < 0 || (size_t)path_length >= sizeof(currentpath)){
+							error_num = 0;
+							Show_error_num(error_num);
+							goto re_showfile;
+						}
+						res=f_chdir(nextpath);
 						if(res != FR_OK){
 							error_num = 0;
 							Show_error_num(error_num);
 							goto re_showfile;
 						}
+						memcpy(currentpath, nextpath, (size_t)path_length + 1);
 
 						p_folder_select_show_offset[folder_select] = show_offset;
 						p_folder_select_file_select[folder_select] = file_select;
@@ -15553,6 +15594,7 @@ u8 FRAM_save_op(u8 OP)
 
 	TCHAR *pfilename;
 	BYTE SAVEMODE;
+	u32 name_len;
 
 	res = f_mkdir(SAVER_FOLDER);//"/SAVER"
 	if((res != FR_OK) && (res != FR_EXIST)){
@@ -15566,8 +15608,13 @@ u8 FRAM_save_op(u8 OP)
 	pfilename = pNorFS[0].filename;
 	SAVEMODE = pNorFS[0].savemode;
 
-	memcpy(savfilename,pfilename,100);
-	strlen8 = strlen(savfilename);
+	name_len = 0;
+	while(name_len < sizeof(savfilename) && pfilename[name_len])
+		name_len++;
+	if(name_len >= sizeof(savfilename) || name_len < 3)
+		return 3;
+	memcpy(savfilename,pfilename,name_len + 1);
+	strlen8 = name_len;
 	(savfilename)[strlen8-3] = 's';
 	(savfilename)[strlen8-2] = 'a';
 	(savfilename)[strlen8-1] = 'v';
@@ -15580,6 +15627,8 @@ u8 FRAM_save_op(u8 OP)
 			f_close(&gfile);
 			Bank_Switching(0);
 			res = Loadsavefile(savfilename);
+			if(!res)
+				return 5;
 			DrawHZText12(gl_save_loaded,0,66,118-15,RGB(00,31,00),1);
 		}
 		else {
@@ -15609,7 +15658,9 @@ u8 FRAM_save_op(u8 OP)
 			}
 		}
 		savefilesize =Get_savefilesize(SAVEMODE);
-		Save_savefile(savfilename,savefilesize);
+		res = Save_savefile(savfilename,savefilesize);
+		if(!res)
+			return 5;
 		DrawHZText12(gl_save_saved,0,66,118-15,RGB(00,31,00),1);
 	}
 	wait_btn();

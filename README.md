@@ -30,7 +30,7 @@ Read the complete [DS Style User Guide](https://frankiet19.github.io/omega-de-ds
 
 ## Building
 
-Install devkitPro/devkitARM, then run:
+On Windows, install devkitPro/devkitARM and run:
 
 ```bat
 build.bat
@@ -43,6 +43,8 @@ ezkernelnew.bin
 ```
 
 Copy `ezkernelnew.bin` to the root of the SD card and boot the cartridge while holding **R** to update the kernel.
+
+For GitHub Codespaces, rebuild the container to install the configured devkitPro environment, then run `make` from the repository root. This builds the `.gba` target; the Windows `build.bat` workflow performs the additional copy to `ezkernelnew.bin`.
 
 ## Skin Assets
 

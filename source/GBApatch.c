@@ -53,20 +53,36 @@ void Write(u32 romaddress, const u8* buffer, u32 size)
 	}
 	else
 	{
-		u32 Address;
-		vu16 page=0;
-		Address=romaddress;
-		while(Address>=0x800000)
+		u32 address = romaddress;
+		u32 source_word = 0;
+		u32 words_remaining = size / 2;
+		if(address & 1)
 		{
-			Address-=0x800000;
-			page+=0x1000;
+			/* PSRAM patch writes use halfwords and require an even address. */
+			SetPSRampage(0);
+			return;
 		}
-		SetPSRampage(page);
 
-		for(x=0;x<size/2;x++)
-			((vu16*)(PSRAMBase_S98 + Address))[x] = ((vu16*)buffer)[x];//todo ��Ҫ����psram page
+		/* PSRAM exposes one 8 MiB page at a time. Split patch copies that
+		   cross a page boundary and select the matching page for each chunk. */
+		while(words_remaining > 0)
+		{
+			u32 page_offset = address % 0x800000;
+			u32 words_to_boundary = (0x800000 - page_offset) / 2;
+			u32 words_this_page = words_remaining;
+			u16 page = (u16)((address / 0x800000) * 0x1000);
+			if(words_this_page > words_to_boundary)
+				words_this_page = words_to_boundary;
 
-		//DEBUG_printf("address{%x}:%x %x %x %x", romaddress,page,Address,size ,((vu32*)buffer)[0]);
+			SetPSRampage(page);
+			for(x = 0; x < words_this_page; x++)
+				((vu16*)(PSRAMBase_S98 + page_offset))[x] = ((const u16*)buffer)[source_word + x];
+
+			address += words_this_page * 2;
+			source_word += words_this_page;
+			words_remaining -= words_this_page;
+		}
+
 		SetPSRampage(0);
 	}
 }
@@ -926,8 +942,13 @@ u32 Check_RTS(TCHAR* gamefilename)
 	u32 res;
 
 	TCHAR rtsnamebuf[100];
-	memcpy(rtsnamebuf,gamefilename,100);
-	u32 len=strlen(rtsnamebuf);
+	u32 len = 0;
+	while(len < sizeof(rtsnamebuf) && gamefilename[len])
+		len++;
+	if(len >= sizeof(rtsnamebuf) || len < 3)
+		return 0;
+	memcpy(rtsnamebuf,gamefilename,len);
+	rtsnamebuf[len] = '\0';
 	rtsnamebuf[len-3] = 'r';
 	rtsnamebuf[len-2] = 't';
 	rtsnamebuf[len-1] = 's';
@@ -952,21 +973,23 @@ u32 Check_RTS(TCHAR* gamefilename)
 		if(res==FR_OK)
 		{
 			int i;
-			unsigned int written;
+			UINT written;
+			FRESULT write_result = FR_OK;
+			FRESULT close_result;
 			memset(pReadCache,0xFF,0x200*4);
 			for(i=0;i<(0x70000)/0x800 ;i++)
 			{
-	      f_write(&gfile, pReadCache, 0x200*4, (UINT*)&written);
-	      if(written != 0x200*4) break;
-	    }
-	    f_close(&gfile);
-
-	    rtsfilesize = 0x70000;
+				write_result = f_write(&gfile, pReadCache, 0x200*4, &written);
+				if(write_result != FR_OK || written != 0x200*4) break;
+			}
+			close_result = f_close(&gfile);
+			rtsfilesize = (i == (0x70000)/0x800 && close_result == FR_OK) ? 0x70000 : 0;
 		}
 		else
 			rtsfilesize = 0;
 	}
-	LoadRTSfile(rtsnamebuf);
+	if(rtsfilesize && !LoadRTSfile(rtsnamebuf))
+		rtsfilesize = 0;
 	if(rtsfilesize)
 	{
 		res = Check_game_RTS_FAT(rtsnamebuf,3);//rts FAT

@@ -1,5 +1,13 @@
 # Changelog
 
+## DS Style v7.4.1
+
+- Prevented failed SD reads from loading stale data into saves, save states, or sectors.
+- Checked save and RTS writes before reporting success, and kept pending save recovery available after a failed write.
+- Bounded malformed cheat data and filename handling before parsing or extension replacement.
+- Fixed ROM patch writes that cross an 8 MiB PSRAM page boundary.
+- Corrected bundled installer test expectations to match the delivered v7.4 style packages.
+
 ## DS Style v7.4
 
 - Added a new DS Style text and Markdown viewer with a clean English interface, light and dark modes, faster navigation, and simple formatting for headings, bold text and dividers.
