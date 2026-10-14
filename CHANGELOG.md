@@ -1,5 +1,10 @@
 # Changelog
 
+## DS Style v7.4.2
+
+- Preserved readable `SYSTEM/SETTINGS.TXT` while staging and verifying settings updates before replacing the current file.
+- Restored the previous valid settings file after an interrupted replacement, and retained legacy settings until the new file was verified.
+
 ## DS Style v7.4.1
 
 - Prevented failed SD reads from loading stale data into saves, save states, or sectors.
