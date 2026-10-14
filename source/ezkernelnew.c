@@ -753,7 +753,11 @@ static u32 Launcher_SettingsReadValue(const char *key, char *out, u32 out_size)
 		return 0;
 
 	out[0] = '\0';
-	if(LauncherSettingsStoreOpenRead(&f, SETTINGS_FILE) != FR_OK)
+	/* Preserve the normal startup read path. The journal recovery code performs
+	   extra filesystem checks and cleanup, so only invoke it when the canonical
+	   settings file cannot be opened (for example, after an interrupted replace). */
+	if(f_open(&f, SETTINGS_FILE, FA_READ) != FR_OK &&
+	   LauncherSettingsStoreOpenRead(&f, SETTINGS_FILE) != FR_OK)
 		return 0;
 
 	while(f_gets(line, sizeof(line), &f) != NULL)
