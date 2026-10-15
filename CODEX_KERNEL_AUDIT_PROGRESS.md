@@ -1,5 +1,12 @@
 # Codex Kernel Audit Progress
 
+### F-009 checkpoint committed and pushed (2026-10-15 23:48 UTC)
+
+- **Objective:** persist the new F-009 source/compatibility checkpoint and the user's F-022 revision-agnostic design constraint for a fresh Codespace/agent.
+- **Commit/push:** documentation-only commit `2b0b80f` (`Checkpoint F-009 alias path audit`) was created on `feature/mirrored-artwork` and pushed successfully to `origin/feature/mirrored-artwork`; push output advanced the branch from `7aa8b52` to `2b0b80f`.
+- **Post-push verification:** `git log -1 --oneline --decorate` reports `2b0b80f` at both local HEAD and `origin/feature/mirrored-artwork`; `git status --short --branch` shows no tracked changes and only untracked `files/`. `git diff --check` passes. Preserve `files/`; no source was changed.
+- **Validation limits:** no build, test, release, diagnostic candidate, or hardware flash occurred. The audit remains open; see the 23:46 F-009 entry for exact next work on legacy recent/favorite path ambiguity and a host FatFs collision regression.
+
 ### F-009 alias-consumer audit complete; legacy path compatibility remains (2026-10-15 23:46 UTC)
 
 - **Objective:** finish tracing how the proposed SFN alias key would interact with launch/save, delete/navigation, favorites/recents, style loading, and artwork, so a fix does not silently change adjacent behavior.
