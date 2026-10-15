@@ -1,5 +1,11 @@
 # Codex Kernel Audit Progress
 
+### F-026 commit created; push pending (2026-10-15 23:16 UTC)
+
+- **Commit:** `70822460271111a8af7a1e59a47cac3f405411b0` (`Relocate launcher user stack to EWRAM`) contains the validated `Makefile`/`source/reset.s` correction and the audit evidence in both ledgers.
+- **Repository state:** source commit `70822460271111a8af7a1e59a47cac3f405411b0` is local and ready to push. This timestamped documentation follow-up is being recorded before the push. `files/` remains user data and was not staged; it contains the SETTINGS template, prior reports, and candidate.
+- **Next:** commit the docs follow-up, push the reviewed changes to the configured branch, verify the remote/tracking state, and record the result. No release or hardware flash.
+
 ### F-026 stack fix passes local verification (2026-10-15 23:12 UTC)
 
 - **Objective:** verify the EWRAM user-stack/heap correction against the production build and preserve one consolidated candidate after the user requested fewer cartridge flashes.

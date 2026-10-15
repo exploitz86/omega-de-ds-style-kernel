@@ -16,7 +16,7 @@ Start by reconciling the cold-start checkpoint below and the detailed progress l
 
 ## Cold-start brief — authoritative current state (2026-10-15)
 
-### Latest checkpoint — F-026 stack fix locally verified (2026-10-15 23:12 UTC)
+### Latest checkpoint — F-026 committed locally; push pending (2026-10-15 23:16 UTC)
 
 - The user added untracked `files/SETTINGS.TXT` and says its values are the assumed defaults if both `/SYSTEM/SETTINGS.TXT` and an optional `SETTINGS.BAK` are corrupt. The user considers transactional recovery disproportionate for this rare case. Do not restore the old journal or add a complex backup protocol. The template is not packaged into the firmware by its repository location alone; compiled-in or deliberately packaged defaults would be needed for runtime fallback.
 - Current in-memory settings defaults do not exactly match this template: `List folders`, `Clean list`, clock format, thumbnail style, vertical side, and missing `View mode` can differ. The text reader parses keys independently and does not validate the whole document, so malformed files may produce a mixture of persisted, NOR-backed, and in-memory values. Record this as a low-priority settings reliability issue, separate from the startup thumbnail stall. Do not edit or stage `files/SETTINGS.TXT`.
@@ -24,8 +24,8 @@ Start by reconciling the cold-start checkpoint below and the detailed progress l
 - **F-026, high, verified:** production thumbnail stack locals overlap the 4 KiB libsysbase `handles` object. The source correction is in `Makefile` and `source/reset.s`. The U922 causal link remains unproven and hardware validation is pending.
 - One non-diagnostic candidate is available at `files/candidate/ezkernelnew-stack-relocation.bin` (2,090,632 bytes; SHA-256 `1d70f116eb3ff4e9c2ab2ee251d910ba96e6051f7f3d59a534f0828b2b9e5e2d`), byte-identical to the successful workspace `.gba`. It is intended to consolidate the next optional hardware check; do not build further marker variants.
 - The user-added `files/SETTINGS.TXT` remains the canonical fallback preference if both persisted settings files are corrupt. It is untracked and unchanged. Keep this low-priority settings behavior separate from F-026 and U922; no journal or backup recovery code was added.
-- Current branch remains `feature/mirrored-artwork` at `2520b9fb4581d7a3db01471662a30ea72d62651c`, tracking `origin/feature/mirrored-artwork`. Modified tracked files: `Makefile`, `source/reset.s`, and both audit documents. User data in `files/` remains untracked, including `SETTINGS.TXT`, prior trace reports, and the new candidate. No commit, push, release, or physical flash has occurred.
-- Next: continue F-022 device/protocol analysis and F-009 long-name design. If the user chooses the candidate for one hardware check, ask for normal startup and last-played thumbnail behavior; no additional trace is needed.
+- Commit `70822460271111a8af7a1e59a47cac3f405411b0` (`Relocate launcher user stack to EWRAM`) contains the fix and validation checkpoint. It is local and ready to push. This docs follow-up is the only additional tracked change being prepared; `files/` remains untracked user data with the SETTINGS template, reports, and candidate. No release or physical flash has occurred.
+- Next: commit this docs follow-up, push the reviewed changes, verify tracking state, then continue F-022 device/protocol analysis and F-009 long-name design. If the user chooses the candidate for one hardware check, collect normal startup and last-played thumbnail behavior; no additional trace is needed.
 
 ### Prior offline checkpoint — U922 stack analysis and F-011 scope (2026-10-15 22:26 UTC)
 
