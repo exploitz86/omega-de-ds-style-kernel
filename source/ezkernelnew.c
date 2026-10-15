@@ -3510,19 +3510,23 @@ static void Launcher_RedrawRomMenuSaveTypeValue(u32 save_num)
 		60+54, value_y, LAUNCHER_SELECTED_TEXT, 1);
 }
 
-static void Show_MENU_Row(u32 line, u32 menu_select, PAGE_NUM page, u32 havecht, u32 Save_num)
+static void Show_MENU_Row(u32 line, u32 menu_select, PAGE_NUM page, u32 havecht, u32 Save_num,
+	 u32 nor_delete_allowed)
 {
 	u32 y_offset= 30;
 	u16 name_color;
 	char msg[64];
+	u32 text_line = line;
 
 	u32 row_y = y_offset + line*14;
 	Launcher_RestoreLegacyMenuRow(row_y, 13);
+	if(page == NOR_list && !nor_delete_allowed && text_line > 0)
+		text_line++;
 	if(line== menu_select){
 		Clear(42, row_y, 156, 13, gl_color_selectBG_sd, 1);
 		name_color = LAUNCHER_SELECTED_TEXT;
 	}
-	else if(line == 1){
+	else if(page != NOR_list && line == 1){
 			if((gl_reset_on |  gl_rts_on| gl_sleep_on| gl_cheat_on) == 0)	{
 				name_color = gl_color_MENU_btn;
 			}
@@ -3544,7 +3548,7 @@ static void Show_MENU_Row(u32 line, u32 menu_select, PAGE_NUM page, u32 havecht,
 	}
 
 	if(page==NOR_list)
-		DrawHZText12(Launcher_NorMenuText(line), 32, 47, row_y, name_color,1);
+		DrawHZText12(Launcher_NorMenuText(text_line), 32, 47, row_y, name_color,1);
 	else
 	{
 		if(line == 5)//cheat
@@ -3572,13 +3576,17 @@ static void Show_MENU_Row(u32 line, u32 menu_select, PAGE_NUM page, u32 havecht,
 	}
 }
 //---------------------------------------------------------------------------------
-void Show_MENU(u32 menu_select,PAGE_NUM page,u32 havecht,u32 Save_num,u32 is_menu,u32 firstgame)
+void Show_MENU(u32 menu_select,PAGE_NUM page,u32 havecht,u32 Save_num,u32 is_menu,u32 firstgame,
+	 u32 nor_delete_allowed)
 {
 	int line;
 
 	u32 linemax;// = (page==NOR_list)?3:(5+havecht);
 	if(page==NOR_list){
-		linemax = firstgame ? 5 : 3;
+		if(nor_delete_allowed)
+			linemax = firstgame ? 5 : 3;
+		else
+			linemax = firstgame ? 4 : 2;
 	}
 	else{
 		linemax = 5 + havecht;
@@ -3592,7 +3600,7 @@ void Show_MENU(u32 menu_select,PAGE_NUM page,u32 havecht,u32 Save_num,u32 is_men
 
 	for(line=0;line<linemax;line++)
 	{
-		Show_MENU_Row(line, menu_select, page, havecht, Save_num);
+		Show_MENU_Row(line, menu_select, page, havecht, Save_num, nor_delete_allowed);
 	}
 }
 //------------------------------------------------------------------
@@ -15668,6 +15676,63 @@ u8 FRAM_save_op(u8 OP)
 
 }
 //---------------------------------------------------------------
+static u32 Launcher_CanDeleteNorTitle(u32 selected_index)
+{
+	const u32 nor_capacity = 0x04000000UL;
+	const u32 nor_block_size = 0x00020000UL;
+	u32 file_size;
+	u32 erase_start;
+
+	if(game_total_NOR == 0 || game_total_NOR > MAX_NOR ||
+	   selected_index >= game_total_NOR || selected_index != game_total_NOR - 1 ||
+	   gl_norOffset > nor_capacity)
+		return 0;
+
+	file_size = pNorFS[selected_index].filesize;
+	if(file_size < nor_block_size || (file_size % nor_block_size) != 0 ||
+	   file_size > gl_norOffset)
+		return 0;
+
+	erase_start = gl_norOffset - file_size;
+	if(erase_start > nor_capacity - file_size ||
+	   pNorFS[selected_index].rompage != erase_start / nor_block_size)
+		return 0;
+
+	return 1;
+}
+
+static void Launcher_WaitForNorDeleteNotice(void)
+{
+	while(1)
+	{
+		VBlankIntrWait();
+		UIAudio_Update();
+		scanKeys();
+		if(keysUp() & (KEY_A | KEY_B))
+		{
+			UIAudio_CutOffTrailingClip();
+			return;
+		}
+	}
+}
+
+static void Launcher_DrawNorDeleteNotice(void)
+{
+	u32 glyph_width = (gl_select_lang == 0xE2E2) ? 12 : 6;
+	u32 text_width = DrawText12VisibleLength(gl_nor_delete_info) * glyph_width;
+	u32 text_x;
+
+	if(gl_select_lang == 0xE2E2)
+		text_x = 36;
+	else if(text_width <= 168)
+		text_x = 36 + (168 - text_width) / 2;
+	else
+		text_x = 36;
+
+	DrawHZText12(gl_nor_delete_info,0,text_x,103,gl_color_text,1);
+}
+
+//---------------------------------------------------------------
 u8 NOR_list_MENU(u32 show_offset,	u32 file_select)
 {
 	//u32 res;
@@ -15684,17 +15749,33 @@ u8 NOR_list_MENU(u32 show_offset,	u32 file_select)
 
 	u32 key_L=0;
 	u8 error_num;
+	u32 selected_index;
+	u32 first_game;
+	u32 delete_allowed;
+	u32 action_line;
+
+	if(show_offset > 0xFFFFFFFFUL - file_select)
+		selected_index = 0xFFFFFFFFUL;
+	else
+		selected_index = show_offset + file_select;
+	first_game = (selected_index == 0);
+	delete_allowed = Launcher_CanDeleteNorTitle(selected_index);
 
 
 	//pfilename = pNorFS[show_offset+file_select].filename;
-	MENU_max = (show_offset + file_select == 0) ? 4 : 2;
+	if(delete_allowed)
+		MENU_max = first_game ? 4 : 2;
+	else
+		MENU_max = first_game ? 3 : 1;
 	DrawPic((u16*)gImage_MENU, 36, 25, 168, 110, 1, 0, 1);//show menu pic
 	Show_MENU_btn();
 	while(1)//3
 	{
 		if(re_menu)
 		{
-			Show_MENU(MENU_line,NOR_list, 0,0,0,(show_offset+file_select==0));
+			Show_MENU(MENU_line,NOR_list, 0,0,0,first_game,delete_allowed);
+			if(!delete_allowed)
+				Launcher_DrawNorDeleteNotice();
 		}
 		VBlankIntrWait();
 
@@ -15708,10 +15789,13 @@ u8 NOR_list_MENU(u32 show_offset,	u32 file_select)
 		keysrepeat = keysDownRepeat();
 		{
 			u16 audio_keysdown = keysdown;
+			u32 audio_action_line = MENU_line;
+			if(!delete_allowed && audio_action_line > 0)
+				audio_action_line++;
 			/* NOR erase/format operations touch hardware/shared buffers while the menu
 			accept sound may still be playing.  Defer the accept sound for those
 			rows so we can play it cleanly and close FIFO DMA before the operation. */
-			if(((MENU_line == 1) || (MENU_line == 2)) && (keysdown & KEY_A))
+			if(((audio_action_line == 1) || (audio_action_line == 2)) && (keysdown & KEY_A))
 				audio_keysdown &= (u16)~KEY_A;
 			UIAudio_HandleKeysEx(audio_keysdown, 0, 0, 0);
 		}
@@ -15722,8 +15806,8 @@ u8 NOR_list_MENU(u32 show_offset,	u32 file_select)
 				u32 first_press = (keysdown & KEY_DOWN) != 0;
 				u32 old_MENU_line = MENU_line;
 	MENU_line++;
-        Show_MENU_Row(old_MENU_line, MENU_line, NOR_list, 0, 0);
-        Show_MENU_Row(MENU_line, MENU_line, NOR_list, 0, 0);
+	        Show_MENU_Row(old_MENU_line, MENU_line, NOR_list, 0, 0, delete_allowed);
+	        Show_MENU_Row(MENU_line, MENU_line, NOR_list, 0, 0, delete_allowed);
         re_menu=0;
 				UIAudio_PlaySfx(UI_SFX_MOVE);
 				menu_scroll_delay = first_press ? 10 : 5;
@@ -15735,8 +15819,8 @@ u8 NOR_list_MENU(u32 show_offset,	u32 file_select)
 				u32 first_press = (keysdown & KEY_UP) != 0;
 				u32 old_MENU_line = MENU_line;
 				MENU_line--;
-				Show_MENU_Row(old_MENU_line, MENU_line, NOR_list, 0, 0);
-				Show_MENU_Row(MENU_line, MENU_line, NOR_list, 0, 0);
+				Show_MENU_Row(old_MENU_line, MENU_line, NOR_list, 0, 0, delete_allowed);
+				Show_MENU_Row(MENU_line, MENU_line, NOR_list, 0, 0, delete_allowed);
 				re_menu=0;
 				UIAudio_PlaySfx(UI_SFX_MOVE);
 				menu_scroll_delay = first_press ? 10 : 5;
@@ -15759,28 +15843,31 @@ u8 NOR_list_MENU(u32 show_offset,	u32 file_select)
 		}
 		else if(keysdown & KEY_A)
 		{
-	if(MENU_line==0){//boot to NOR.page
+			action_line = MENU_line;
+			if(!delete_allowed && action_line > 0)
+				action_line++;
+			if(action_line==0){//boot to NOR.page
 				Boot_NOR_game(show_offset,file_select,key_L);
 			}
-			else if(MENU_line==1){
-				//delete lastest geme
+			else if(action_line==1){
+				// Only the newest title can be erased without moving other NOR data.
 				UIAudio_PlayAccept();
-				if(show_offset+file_select+1 == game_total_NOR){
-					Block_Erase(gl_norOffset-pNorFS[show_offset+file_select].filesize);
-				}
-				else{
-					DrawHZText12(gl_lastest_game,0,66,118-15,gl_color_text,1);
-					wait_btn();
+				if(delete_allowed && Launcher_CanDeleteNorTitle(selected_index))
+					Block_Erase(gl_norOffset-pNorFS[selected_index].filesize);
+				else
+				{
+					Launcher_DrawNorDeleteNotice();
+					Launcher_WaitForNorDeleteNotice();
 				}
 				return 1;
 			}
-			else if(MENU_line==2){ //
+			else if(action_line==2){ //
 				//format all
 				UIAudio_PlayAccept();
 							FormatNor();
 				return 1;
 			}
-			else if(MENU_line==3){ //load save data to FRAM
+			else if(action_line==3){ //load save data to FRAM
 				error_num = FRAM_save_op(1);
 				if(error_num != 0)
 					Show_error_num(error_num);
@@ -16017,7 +16104,7 @@ if (is_EMU == 0xff)
 	{
 		if(re_menu)
 		{
-			Show_MENU(MENU_line,SD_list, ((havecht>0)?1:0),Save_num,is_EMU,(show_offset+file_select==0));
+			Show_MENU(MENU_line,SD_list, ((havecht>0)?1:0),Save_num,is_EMU,(show_offset+file_select==0),1);
 		}
 		VBlankIntrWait();
 
@@ -16039,8 +16126,8 @@ if (is_EMU == 0xff)
         u32 first_press = (keysdown & KEY_DOWN) != 0;
         u32 old_MENU_line = MENU_line;
 	MENU_line++;
-        Show_MENU_Row(old_MENU_line, MENU_line, SD_list, ((havecht>0)?1:0), Save_num);
-        Show_MENU_Row(MENU_line, MENU_line, SD_list, ((havecht>0)?1:0), Save_num);
+        Show_MENU_Row(old_MENU_line, MENU_line, SD_list, ((havecht>0)?1:0), Save_num, 1);
+        Show_MENU_Row(MENU_line, MENU_line, SD_list, ((havecht>0)?1:0), Save_num, 1);
         re_menu=0;
 				UIAudio_PlaySfx(UI_SFX_MOVE);
 				menu_scroll_delay = first_press ? 10 : 5;
@@ -16052,8 +16139,8 @@ if (is_EMU == 0xff)
 				u32 first_press = (keysdown & KEY_UP) != 0;
 				u32 old_MENU_line = MENU_line;
 				MENU_line--;
-				Show_MENU_Row(old_MENU_line, MENU_line, SD_list, ((havecht>0)?1:0), Save_num);
-				Show_MENU_Row(MENU_line, MENU_line, SD_list, ((havecht>0)?1:0), Save_num);
+				Show_MENU_Row(old_MENU_line, MENU_line, SD_list, ((havecht>0)?1:0), Save_num, 1);
+				Show_MENU_Row(MENU_line, MENU_line, SD_list, ((havecht>0)?1:0), Save_num, 1);
 				re_menu=0;
 				UIAudio_PlaySfx(UI_SFX_MOVE);
 				menu_scroll_delay = first_press ? 10 : 5;

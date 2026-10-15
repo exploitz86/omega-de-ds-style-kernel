@@ -365,7 +365,7 @@
 #define DSTEXT_STATUS_WRITING "Writing..."
 #endif
 #ifndef DSTEXT_STATUS_SELECT_LATEST
-#define DSTEXT_STATUS_SELECT_LATEST "Select the lastest"
+#define DSTEXT_STATUS_SELECT_LATEST "Delete newest title only"
 #endif
 #ifndef DSTEXT_STATUS_CHECK_SAVE
 #define DSTEXT_STATUS_CHECK_SAVE "Checking Save Data..."
