@@ -28,6 +28,7 @@
 #include "launcher_path_policy.h"
 #include "launcher_artwork_path.h"
 #include "launcher_indexed_name.h"
+#include "savefile_policy.h"
 #include "thai620.h"
 
 static void Launcher_SaveUnifiedSettings(void);
@@ -5199,8 +5200,10 @@ u32 IWRAM_CODE Save_savefile(TCHAR *filename,u32 savesize)
 			close_result = f_close(&file);
 			if(!ok || close_result != FR_OK)
 			{
-				/* This file was just created for a missing save. Do not leave a
-				   truncated file that a later launch could accept as a save. */
+				/* FA_CREATE_ALWAYS discarded the previous contents before writing.
+				   Remove the incomplete replacement so a later launch does not accept
+				   its truncated length as a complete save. The old data cannot be
+				   restored here. */
 				f_unlink(filename);
 				return 0;
 			}
@@ -5286,7 +5289,14 @@ u32 SavefileWrite(TCHAR *filename,u32 savesize)
 
 			close_result = f_close(&file);
 
-			return (ok && close_result == FR_OK) ? 1 : 0;
+			if(!ok || close_result != FR_OK)
+			{
+				/* This path creates a save that was not present. Remove any partial
+				   file so a later launch cannot mistake its size for a valid save. */
+				f_unlink(filename);
+				return 0;
+			}
+			return 1;
     }
     break;
     default:
@@ -9751,7 +9761,7 @@ u8 Process_savefile(u32 is_EMU,TCHAR *pfilename,u32 gamefilesize,BYTE saveMODE)
 		if (gl_toggle_backup)
 			Backup_savefile(savfilename);
 	}
-	else //make a new one
+	else if(SaveFileOpenMeansMissing((FRESULT)res)) //make a new one
 	{
 
 		ShowbootProgress(gl_make_sav);
@@ -9761,6 +9771,11 @@ u8 Process_savefile(u32 is_EMU,TCHAR *pfilename,u32 gamefilesize,BYTE saveMODE)
 			u8 error_num = 5;
 			return error_num;
 		}
+	}
+	else
+	{
+		/* An I/O or path error does not prove the existing save is absent. */
+		return 5;
 	}
 
 	if(savefilesize)

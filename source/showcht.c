@@ -848,11 +848,13 @@ void Analyze_KEYVAL(FIL* file,u32 total)
 						continue;
 
 			address_len=0;
+			val_len=0;
 			is_val = 0;
 			is_address = 1;
 			address_add = 0;
 			malformed_code = 0;
 			memset(address_buf,0x00,sizeof(address_buf));
+			memset(val_buf,0x00,sizeof(val_buf));
 			for(i=0;i<buflen;i++)
 			{
 	      if (_paramv[i] == ' '){
