@@ -18,6 +18,12 @@
 - The script's unrestricted multi-configuration Cppcheck phase remained in `source/ezkernelnew.c` configuration analysis for more than three minutes without diagnostics. It was manually interrupted (exit 130) because the dedicated targeted Cppcheck command with `--max-configs=1` had already completed with exit 0 and only `[toomanyconfigs]`. This is a time-bounded analysis limitation, not a discovered analyzer failure. No source changes followed the final forced build/host fixture.
 - No commit or push yet; continue from the F-009 completion checkpoint above, preserve `files/`, and proceed with F-022.
 
+### F-009 implementation commit created locally (2026-10-16 00:58 UTC)
+
+- **Commit:** `70f60403d5b353dc70e940791e739a252232362b` (`Preserve long filename identity and save paths`) contains the validated F-009 firmware, shared policy/generation helpers, in-memory FatFs regression, and audit ledgers as they stood at commit time.
+- **Repository evidence:** branch `feature/mirrored-artwork`; source/test commit is one commit ahead of `origin/feature/mirrored-artwork`. The later broad-verification note and this handoff follow-up are being committed separately. User artifacts under `files/` remain untracked and were excluded from the commit.
+- **Next:** commit this documentation follow-up, push the local F-009 commits, verify local and remote-tracking refs, then resume F-022. Do not publish a release or flash hardware.
+
 ### F-009 backup rotation must preserve the FatFs component limit (2026-10-16 00:47:05 UTC)
 
 - **Objective:** repair optional save-backup paths for newly supported long LFN save basenames without changing primary game/save identity or ordinary backup naming.
