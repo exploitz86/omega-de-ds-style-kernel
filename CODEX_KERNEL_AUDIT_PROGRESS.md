@@ -1,5 +1,21 @@
 # Codex Kernel Audit Progress
 
+## 2026-10-16 23:52 UTC — VBlank fix pushed; open issue difficulty review
+
+- **Commit/push:** `f44d8f78a147b27ee78aa0688590be522cdc40ce` (`Mask VBlank during S71 flash commands`) is on local `main`, `origin/main`, and `origin/HEAD`. `git ls-remote origin refs/heads/main` returned the same full hash. The feature reference remains `27c26631667182c2a264c5b3d1371ba5e4fbfa75`. No force push. Tracked tree is clean after the source fix commit; only user-owned untracked `files/` remains. The follow-up edit to these two ledgers is being prepared separately; do not stage `files/`.
+- **Open issue inventory with engineering estimates:**
+  - `F-011` — **Medium**, settings-write truncation/data-loss risk plus a separate unexplained startup/thumbnail regression. **Very hard / high regression risk:** preserve existing settings across failures without reintroducing the earlier startup stall; user prefers known defaults over complex recovery, so keep lower priority unless a narrow safe design appears.
+  - `F-022` — **Medium overall**; unbounded NOR status polling and incomplete device timing/alternate-ID knowledge remain. The S71 VBlank fetch hazard is now mitigated by the committed scoped mask. **Hard / high regression risk** for broader poll/ID changes because supported chips and complete timing bounds are not established; physical validation is unavailable here. Do not add an arbitrary timeout.
+  - `F-032` — **Medium**, power loss can interrupt rewrite of the only NOR catalog copy. **Very hard / high regression risk:** a solution must survive every write interruption and remain compatible with older firmware and board revisions; the shadow prototype was rejected after a stale-generation recovery counterexample.
+  - `F-036` — **Medium**, failed `Save_savefile()` replacement can remove the existing SD save. **Hard / high regression risk:** staged replacement/recovery must cover startup recovery, normal loading and manual FRAM save, under FatFs rename/unlink interruption cases.
+  - `F-026` verification follow-up — the stack relocation fix is implemented and map/disassembly validated, but the reported U922 startup symptom is not causally confirmed on hardware. **Hardware-dependent to close; no remaining source fix is established.**
+  - `F-037` — **Informational evidence gap, not an active defect:** exact original-DE NOR marking/BOM is unavailable. **Hard to prove** without physical identification; no code change is warranted absent that evidence.
+  - `CL-01` — **Low**, unused-function inventory is incomplete. **Low/medium effort, low regression risk** if limited to object/link evidence and no removals.
+  - `CL-02` — **Low**, user-facing documentation for the marked-thumbnail format is missing. **Low effort, negligible regression risk** (documentation only).
+  - `CL-03` — **Low**, Windows missing-header diagnostic may omit the `Grit\\` path. **Low effort/risk**, but verify the relevant batch branch first.
+  - `CL-04` — **Low**, current source banner and existing release label differ. **Low/moderate effort, moderate packaging risk** because a correction must be paired with a properly versioned, validated future build; do not mutate an existing release for this audit-only concern.
+- **Next:** continue F-022's documented-device/timing boundary review without arbitrary timeouts, then choose between F-032 recovery design and F-036 staged-save design based on available deterministic fault-injection coverage. Keep F-011 lower priority in line with the user's defaults preference.
+
 ## 2026-10-16 23:47 UTC — F-022 S71 VBlank mask implemented and target-validated
 
 - **Phase/subsystem:** S71 NOR metadata command safety. **Objective:** prevent the default VBlank IRQ from fetching its handler out of S71 while S71 is in ID/busy mode, without disabling the IWRAM Timer1 audio handler or changing caller interrupt policy.

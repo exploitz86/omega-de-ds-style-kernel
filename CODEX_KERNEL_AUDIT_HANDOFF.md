@@ -1,5 +1,22 @@
 # DS Style Kernel Audit — Standalone Handoff
 
+## Live repository checkpoint and open issue estimates (2026-10-16 23:52 UTC)
+
+- **Git state:** local `main`, `origin/main`, and `origin/HEAD` are at `f44d8f78a147b27ee78aa0688590be522cdc40ce` (`Mask VBlank during S71 flash commands`); remote verification returned the same full hash. `feature/mirrored-artwork` remains at `27c26631667182c2a264c5b3d1371ba5e4fbfa75`. This ledger follow-up will be committed separately. Preserve user-owned untracked `files/` exactly; never stage it.
+- **F-022 fix/validation:** `Save_info()` masks only `IRQ_VBLANK` in `REG_IE`, restores the original IE value through common cleanup, and leaves the IWRAM Timer1 handler enabled. Commit `f44d8f7` includes the fix. Target build, both NOR host suites, broader Bash audit script, focused Cppcheck and diff checks passed. No physical NOR/IRQ test; busy polling remains unbounded.
+- **Open findings and resolution difficulty:**
+  - `F-011` — **Medium**, settings truncation/data-loss and a distinct unexplained startup/thumbnail regression. **Very hard/high regression risk**; earlier journal/direct-read work stalled on hardware, and the user's preference is to prioritize known defaults over complex settings recovery.
+  - `F-022` — **Medium overall**, unbounded polling and incomplete accepted-device timing/ID evidence remain; the specific High-impact VBlank/S71 fetch hazard is now mitigated. **Hard/high regression risk** for further NOR protocol changes; no arbitrary timeout.
+  - `F-032` — **Medium**, power interruption during replacement of the sole NOR catalog copy. **Very hard/high regression risk** because recovery must tolerate every write cut and coexist with older firmware/revisions; the stale-shadow design was rejected.
+  - `F-036` — **Medium**, failed write while replacing an existing save can remove the old SD file. **Hard/high regression risk**; staged recovery must cover startup, normal loading and manual FRAM paths and FatFs operation interruption.
+  - `F-026` — source stack relocation is implemented and link-validated, but relation to reported U922 startup behavior remains unverified. **Hardware-dependent follow-up**, with no further source defect established.
+  - `F-037` — **Informational evidence gap**, not an active defect after correcting the DE vs DE B scope mix-up. Exact original-DE component proof is **hard and hardware/BOM-dependent**; do not change ID support without it.
+  - `CL-01` — **Low**, unused-function inventory; low/medium effort, low regression risk if no dead-code removal is attempted.
+  - `CL-02` — **Low**, marked-thumbnail format docs; low effort, negligible regression risk.
+  - `CL-03` — **Low**, Windows missing-header diagnostic path; low effort/risk after the batch branch is checked.
+  - `CL-04` — **Low**, source vs release banner mismatch; low/moderate effort and moderate packaging risk; handle only in a properly versioned future build.
+- **Next:** resume F-022 by checking whether primary specifications and actual accepted S71 IDs bound the entire embedded erase/program operation, including preprogram/verify. If not, retain the no-finite-timeout conclusion. Then prioritize F-032 or F-036 only where deterministic fault-injection/recovery tests can cover the full state machine. Keep F-011 lower priority per the user's defaults preference.
+
 ## Live reconciliation — issue status and F-037 correction (2026-10-16 23:42 UTC)
 
 - **Repository:** local `main` at `0d1f9c81c74b9ad724bf2dd700c5c53b49bd83fb`, matching `origin/main`; GitHub's default branch is `main`. Local and remote `feature/mirrored-artwork` remain at `27c26631667182c2a264c5b3d1371ba5e4fbfa75`. `source/Ezcard_OP.c` and both audit ledgers have pending edits. Preserve the user-owned untracked `files/` tree.
@@ -740,7 +757,7 @@ The release was created and subsequently corrected to use the cartridge-required
 
 ## Current audit phase status
 
-1. Repository identity/state: the target is the original EZ-FLASH Omega Definitive Edition kernel. Local `main` is at `0d1f9c81c74b9ad724bf2dd700c5c53b49bd83fb`, matching `origin/main`; `main` is the default. Retained `feature/mirrored-artwork` is at `27c26631667182c2a264c5b3d1371ba5e4fbfa75`. Current edits include the F-022 `Save_info()` VBlank mask and audit-document reconciliation; preserve untracked user-owned `files/`.
+1. Repository identity/state: the target is the original EZ-FLASH Omega Definitive Edition kernel. Local `main` is at `f44d8f78a147b27ee78aa0688590be522cdc40ce`, matching `origin/main`; `main` is the default. Retained `feature/mirrored-artwork` is at `27c26631667182c2a264c5b3d1371ba5e4fbfa75`. Only the two audit ledgers are pending follow-up edits; preserve untracked user-owned `files/`.
 2. Broad source/comment/docs review: prior review covered firmware C/assembly, FatFs, UI/storage, build/assets, installer/CI, and guide. Physical SD/NOR/PSRAM behavior remains outside local validation. The audit is not complete.
 3. F-009 long-name identity/artwork work: complete, host-tested, target-built, and pushed according to later dated entries; physical cartridge/UI behavior remains untested.
 4. **Open Medium findings:** F-011 (settings truncation/data-loss risk and separate unexplained startup/thumbnail regression); F-022 (NOR liveness/device support, S71 IRQ safety, and hardware timing limitations); F-032 (single-copy NOR catalog interruption risk); F-036 (existing SD save loss after failed replacement). F-037 is an informational product-identification evidence gap after correction, not a likely defect. CL-01–CL-04 are low-priority deferred/documentation/release-label items.
@@ -750,8 +767,7 @@ The release was created and subsequently corrected to use the cartridge-required
 
 ## Exact next actions
 
-1. Inspect the full source/documentation diff and verify live branch/remote state. The broad audit script and final focused build/NOR checks have passed.
-2. If validation remains clean, commit and push the scoped `Save_info()` VBlank-mask fix and current audit-document reconciliation to `main`; verify `origin/main` against local HEAD. Do not stage `files/`.
-3. Continue F-022 timeout/support analysis: inspect the accepted S71 ID set and determine whether published device specifications bound all internal erase/program phases. If not, retain the no-finite-timeout finding; do not guess.
-5. Keep F-037 out of active defect priority unless exact original-DE part marking, BOM, or safe ID capture establishes the candidate OPN and topology. Do not infer original-DE support from the DE B changelog.
-6. Update both ledgers at every milestone. Preserve user files and existing release assets; do not perform destructive hardware flash operations.
+1. Commit and push this audit-ledger follow-up to `main`; the source fix is already committed at `f44d8f78a147b27ee78aa0688590be522cdc40ce`. Stage only the two ledgers and verify remote refs afterward. Do not stage `files/`.
+2. Continue F-022 timing/device review as listed in the live checkpoint at the top of this file.
+3. Keep F-037 out of active defect priority unless exact original-DE part marking, BOM, or safe ID capture establishes the candidate OPN and topology. Do not infer original-DE support from the DE B changelog.
+4. Update both ledgers at every milestone. Preserve user files and existing release assets; do not perform destructive hardware flash operations.
