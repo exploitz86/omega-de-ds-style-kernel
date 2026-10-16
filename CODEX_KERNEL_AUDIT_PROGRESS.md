@@ -1,5 +1,14 @@
 # Codex Kernel Audit Progress
 
+## 2026-10-16 23:25 UTC — F-033–F-035 commit pushed and verified
+
+- **Phase/subsystem:** save creation and cheat parsing fixes; change management. **Objective:** fulfill the user's request to commit and push the three reviewed fixes, excluding the unrelated F-032 characterization and user-owned files.
+- **Commit:** `0e81fee319dadf8c922ef5b4e599eb2afdbd2944` (`Fix save creation and cheat row parsing`). It contains exactly the two audit ledgers, `source/ezkernelnew.c`, `source/showcht.c`, `source/savefile_policy.h`, the save and cheat host tests, and their runner scripts (9 files; 745 insertions, 9 deletions). `tests/nor-catalog-recovery-host.c` and `files/` were not staged.
+- **Validation:** immediately before commit, `sh scripts/test-savefile-host.sh` PASS (20 checks, including the separate F-036 loss characterization); `sh scripts/test-cheat-row-host.sh` PASS (two non-fatal extraction warnings: signedness and unused parameter); `git diff --cached --check` PASS. The broader target build, all seven focused suites, audit verification script, and Cppcheck had passed earlier in this session.
+- **Push verification:** `git push origin feature/mirrored-artwork` succeeded without force. `git ls-remote origin refs/heads/feature/mirrored-artwork` returned `0e81fee319dadf8c922ef5b4e599eb2afdbd2944`; `git branch -vv` confirmed local and origin aligned. No release, hardware, or flash action occurred.
+- **Remaining working-tree items:** the separate F-032 host characterization `tests/nor-catalog-recovery-host.c` remains modified and unstaged. `files/` remains user-owned/untracked; `SETTINGS.TXT` was preserved and `claude.zip` remains removed. The two ledgers are being updated with this post-push checkpoint before audit continuation.
+- **Next:** resume F-036 only through the already checkpointed transaction/recovery design and host crash-cut plan; if no testable safe design is established, keep it open and return to F-022. Preserve the remaining F-032 test and all files under `files/`.
+
 ## 2026-10-16 23:24 UTC — Scoped F-033–F-035 commit/push prepared
 
 - **Phase/subsystem:** save creation and cheat parsing fixes; change management. **Objective:** carry out the user's request to commit and push the three completed low-regression-risk fixes while preserving unrelated and user-owned changes.
