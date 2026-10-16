@@ -185,6 +185,27 @@ static void test_primary_erase_cuts(const uint8_t *old_image)
 	}
 }
 
+static void test_unretired_shadow_after_legacy_erase(const uint8_t *old_image,
+	const uint8_t *current_image)
+{
+	uint8_t primary[IMAGE_SIZE];
+	uint8_t shadow[IMAGE_SIZE];
+
+	memcpy(primary, current_image, IMAGE_SIZE);
+	memcpy(shadow, old_image, IMAGE_SIZE);
+	check(choose(primary, shadow, 4, 3) == NOR_CATALOG_SOURCE_PRIMARY,
+		"new-format reader uses the committed primary while it remains intact");
+
+	/* An older Save_info erases the primary sector before writing raw catalog bytes. */
+	memset(primary, 0xFF, IMAGE_SIZE);
+	check(image_state(primary) == NOR_CATALOG_HEADER_LEGACY,
+		"legacy primary erase appears as a blank raw catalog");
+	check(choose(primary, shadow, 0, 3) == NOR_CATALOG_SOURCE_SHADOW,
+		"unretired stale shadow wins during an interrupted legacy raw rewrite");
+	check(memcmp(shadow, current_image, CATALOG_SIZE) != 0,
+		"selected shadow predates the previously committed primary catalog");
+}
+
 int main(void)
 {
 	uint8_t old_catalog[CATALOG_SIZE];
@@ -210,6 +231,7 @@ int main(void)
 	test_primary_write_cuts(old_image, new_image);
 	test_primary_erase_cuts(old_image);
 	test_retirement_states(old_image, new_image, legacy_image);
+	test_unretired_shadow_after_legacy_erase(old_image, new_image);
 
 	puts("NOR catalog recovery transitions and legacy ranking scenarios passed.");
 	return 0;
