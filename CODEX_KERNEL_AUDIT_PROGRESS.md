@@ -1,5 +1,11 @@
 # Codex Kernel Audit Progress
 
+### F-022 analysis checkpoint push verification (2026-10-16 01:29 UTC)
+
+- **Push:** commits `988765c53ab7fe651ff7980ed903a5f890082d6f` and `aa142acbb1f23a73dc9811d8b7ea73d4c10da633` were pushed to `origin/feature/mirrored-artwork`.
+- **Verification:** immediately after push, `git rev-parse HEAD` and `git rev-parse origin/feature/mirrored-artwork` both returned `aa142acbb1f23a73dc9811d8b7ea73d4c10da633`. Working tree had only the three user-owned untracked entries under `files/`.
+- **Result:** this push makes the BIOS wait correction, linked-address evidence, and unresolved physical-map interaction durable. No production code/build artifact or user-owned file changed.
+
 ### F-022 VBlank wait and linked execution placement follow-up (2026-10-16 01:28 UTC)
 
 - **Phase/subsystem:** NOR liveness / interrupt behavior. **Objective:** resolve whether `Chip_Erase`'s `REG_IME=0` followed by `VBlankIntrWait()` is a guaranteed deadlock and inspect code placement during NOR busy time.

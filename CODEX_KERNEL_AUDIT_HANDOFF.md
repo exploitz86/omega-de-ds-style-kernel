@@ -1,5 +1,10 @@
 # DS Style Kernel Audit — Standalone Handoff
 
+## F-022 checkpoint push verified (2026-10-16 01:29 UTC)
+
+- Analysis and status commits `988765c53ab7fe651ff7980ed903a5f890082d6f` and `aa142acbb1f23a73dc9811d8b7ea73d4c10da633` were pushed to `origin/feature/mirrored-artwork`; immediately afterward local `HEAD` and the origin-tracking ref both resolved to `aa142acbb1f23a73dc9811d8b7ea73d4c10da633`.
+- The current continuation remains F-022. The only untracked content is the three user-owned files under `files/`; do not stage or modify them. No firmware source or build artifact changed.
+
 ## Current F-022 continuation — VBlank wait and execution placement (2026-10-16 01:28 UTC)
 
 - The earlier concern that `Chip_Erase` must deadlock because it sets `REG_IME=0` before `VBlankIntrWait()` is **disproved**. `main()` calls `irqInit()`, enables `IRQ_VBLANK`, and sets IME; libgba's `irqEnable` configures DISPSTAT/IE/IME, and its dispatcher writes enabled IRQ flags into the BIOS `IntrWait` word. A hardware-checked BIOS reference documents SWI 0x04 (`IntrWait`, used by VBlankIntrWait) force-enabling IME and returning on the configured interrupt. Sources: [libgba interrupt setup](https://github.com/devkitPro/libgba/blob/master/src/interrupt.c), [libgba dispatcher](https://github.com/devkitPro/libgba/blob/master/src/InterruptDispatcher.s), [hardware-checked IntrWait reference](https://retrointernals.github.io/gba-bios-reference/swi_04_intrwait/), [VBlankIntrWait reference](https://retrointernals.github.io/gba-bios-reference/swi_05_vblankintrwait/). No deadlock or production fix is established on this basis.
