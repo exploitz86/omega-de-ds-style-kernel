@@ -1,5 +1,11 @@
 # DS Style Kernel Audit — Standalone Handoff
 
+## Push checkpoint — F-022 review is durable (2026-10-16 01:09 UTC)
+
+- Commits `feec4d8` and `5829ac4db6fd7dbf71acd036883b2184a843186c` are pushed to `origin/feature/mirrored-artwork`. Immediately after push, local `HEAD` and origin-tracking ref both resolved to `5829ac4db6fd7dbf71acd036883b2184a843186c`; tracked working tree was clean.
+- The user-owned files `files/SETTINGS.TXT`, `files/candidate/README-timing-diagnostics.txt`, and `files/candidate/diagnostic-report.txt` remain untracked and untouched. No release or hardware action occurred.
+- Continue with the F-022 next actions in the latest continuation below.
+
 ## Latest continuation — F-022 NOR status/error propagation review (2026-10-16 01:07 UTC)
 
 - Re-reviewed `Block_Erase`, `Chip_Erase`, `WriteFlash`, `WriteFlash_with32word`, `Loadfile2NOR`, `FormatNor`, and S71 metadata `Save_info` plus their callers. Current source facts and an operation-by-operation matrix are recorded in the 01:07 UTC progress entry.
@@ -7,7 +13,7 @@
 - Official Infineon manuals for S29WS512P, S29PL-J, and S29GL064N document DQ7/DQ6 data polling, DQ5 timing-limit errors, and DQ1 buffer-abort status. They are references for candidate protocols, not proof of the full Omega DE revision BOM. Published sector erase maxima exclude embedded preprogram/verify, and no separate complete bound was found. Do not choose a timeout from the nominal sector maximum.
 - Timer search found UI audio uses timers 0/1 and no in-repository timer 2/3 references; libgba exposes all four timer registers. A polled timer 2/3 cascade is a candidate elapsed-time source independent of IRQ delivery, but does not provide a justified timeout until supported-device whole-operation bounds exist. It also cannot resolve a possible blocking `VBlankIntrWait()` inside `Chip_Erase` without separate BIOS behavior evidence.
 - No production change, build, trace, or flash was made. The exact S71/S98 chip models and revision-to-ID map, plus a whole-operation bound for embedded erase work, remain blockers to a safe timeout policy. Preserve generic cross-revision behavior and do not reject IDs by guess.
-- **Current repository:** branch `feature/mirrored-artwork`; local commit `feec4d8` is one commit ahead of `origin/feature/mirrored-artwork`. Audit handoff/progress contain local F-022 checkpoint edits. The three user-owned files under `files/` remain untracked; do not stage them.
+- **Current repository at this audit checkpoint:** branch `feature/mirrored-artwork`; the reviewed documentation checkpoint is pushed as `5829ac4db6fd7dbf71acd036883b2184a843186c`. See the 01:09 UTC push checkpoint above; preserve the three user-owned files under `files/`.
 - **Next action:** seek authoritative cartridge revision-to-chip/ID mapping; confirm Timer2/3 reservation against linked/runtime code; and resolve the separate `VBlankIntrWait()` behavior in `Chip_Erase`. A timer source alone is insufficient without a safe whole-operation bound across supported parts. If hardware mapping/bounds remain unknown, retain the blocker and avoid production timeout changes. Any future implementation must test pure status/result logic and prevent catalog updates after failed operations.
 
 ## Latest continuation — manual save import compatibility (2026-10-16 01:05 UTC)

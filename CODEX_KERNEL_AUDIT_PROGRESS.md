@@ -1,5 +1,11 @@
 # Codex Kernel Audit Progress
 
+### F-022 checkpoint pushed and remote ref verified (2026-10-16 01:09 UTC)
+
+- **Push:** documentation commits `feec4d8` (manual save-import review) and `5829ac4` (NOR status/caller propagation and timer-source checkpoint) were pushed to `origin/feature/mirrored-artwork`.
+- **Verification:** `git rev-parse HEAD` and `git rev-parse origin/feature/mirrored-artwork` both returned `5829ac4db6fd7dbf71acd036883b2184a843186c`. Status immediately after push showed no tracked changes and only the three user-owned untracked files under `files/`.
+- **Next:** continue offline F-022 evidence gathering. No production source change, release, trace, or hardware flash occurred.
+
 ### F-022 NOR status and caller propagation re-review (2026-10-16 01:07 UTC)
 
 - **Objective:** resume the documented offline NOR audit after F-009; map current completion polling, documented terminal-error checks, and whether failures can reach catalog/UI callers without guessing hardware revision support.
