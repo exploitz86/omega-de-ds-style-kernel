@@ -1358,7 +1358,7 @@ static volatile u8 g_ui_audio_active = 0;
 static volatile u8 g_ui_audio_uses_shared_buffer = 0;
 
 static void UIAudio_Stop(void);
-static void UIAudio_Timer1IRQ(void);
+static void IWRAM_CODE UIAudio_Timer1IRQ(void);
 
 static void UIAudio_StopForSharedBufferUse(void)
 {
@@ -1437,7 +1437,7 @@ static u32 UIAudio_PrepareBuffer(const signed char *data, u32 len, u32 allow_sha
 }
 
 
-static void UIAudio_StopHardware(void)
+static void IWRAM_CODE UIAudio_StopHardware(void)
 {
     REG_DMA1CNT_UI = 0;
     REG_TM0CNT_H_UI = 0;
@@ -1459,12 +1459,12 @@ static void UIAudio_Stop(void)
     delay(8);
 }
 
-static void UIAudio_StopFromTimer(void)
+static void IWRAM_CODE UIAudio_StopFromTimer(void)
 {
     UIAudio_StopHardware();
 }
 
-static void UIAudio_Timer1IRQ(void)
+static void IWRAM_CODE UIAudio_Timer1IRQ(void)
 {
     UIAudio_StopFromTimer();
 }
