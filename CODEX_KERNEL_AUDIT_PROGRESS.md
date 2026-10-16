@@ -18,6 +18,12 @@
 - **Repository state:** tracked changes are limited to the two audit documents and `source/ezkernelnew.c`; ignored build outputs were regenerated. User-owned `files/` remains untracked and untouched. No commit or push yet.
 - **Next:** inspect final diff and ensure the code change is narrowly scoped; commit/push this validated correction and checkpoint if no unrelated changes appear. Then continue F-022 chip/revision identification and status/error propagation.
 
+### F-022 S71 IRQ fix committed locally; push pending (2026-10-16 01:45 UTC)
+
+- **Commit:** `e2a8d976ff14a2859584182808e89953a200e41e` (`Keep audio timer IRQ safe during S71 writes`) contains only the IWRAM handler relocation and the audit handoff/progress updates. The source diff was reviewed; staged state contained only the intended three tracked files. `git diff --check` and the earlier target build/ELF inspection pass.
+- **Repository state:** branch `feature/mirrored-artwork`; local `HEAD` is `e2a8d976ff14a2859584182808e89953a200e41e`, origin remains `9822865e6ef82b99754e7eeba7f8dded5653fe71`, so local is ahead by one commit. Tracked worktree is clean. User-owned `files/` remains untracked and untouched.
+- **Next:** push the local commit and immediately verify the remote tracking ref, then continue the open S98/NOR protocol and ID review. No hardware operation is planned.
+
 ### F-022 checkpoint — S98 mapping resolved; investigate S71 metadata IRQ/XIP hazard (2026-10-16 01:37 UTC)
 
 - **Objective:** checkpoint the new official cartridge-map evidence before a substantial device-protocol and interrupt-context investigation, and redirect the next task to the highest-value remaining NOR risk.

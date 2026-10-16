@@ -1,15 +1,16 @@
 # DS Style Kernel Audit — Standalone Handoff
 
-## F-022 S71 metadata IRQ hazard corrected and target-build verified (2026-10-16 01:43 UTC)
+## F-022 S71 metadata IRQ fix committed locally; push pending (2026-10-16 01:45 UTC)
 
 - Extracted the PDF published in the manufacturer's [official `ez-flash/omega-de-kernel` repository](https://github.com/ez-flash/omega-de-kernel/blob/main/EZ-FLASH%20OMEGA%20DE%20DOCUMENT.pdf). It names two separate MCPs: **S71GL064A08** (64-Mbit NOR + 8-Mbit SRAM) for the bootloader/kernel and **S98WS512PE0** (512-Mbit NOR + 256-Mbit PSRAM). Its memory map places the kernel in the S71 window, PSRAM at `0x08800000–0x08FFFFFF`, and S98 NOR at `0x09000000–0x097FFFFF`.
 - This resolves the earlier physical-map uncertainty for the documented Omega DE hardware: `Chip_Erase` operates on S98 NOR, while the kernel and `UIAudio_Timer1IRQ` execute from the separate S71 NOR. The `VBlankIntrWait()`-enabled IRQ handler therefore does not fetch from the S98 chip while it is being erased. The IME-only deadlock and S98-vs-kernel XIP hypotheses are **disproved for this documented board design**.
 - **Verified F-022 defect — S71 flash busy-time IRQ fetch:** the Spansion S29GL-A data sheet says embedded program/erase returns the device to array-read mode only on completion; reads during the operation provide status, and other-sector reads require suspend. Sector erase is typically 0.5 seconds (maximum 3.5 seconds, excluding pre-program), far longer than the GBA's 16.7-ms VBlank interval. Local `Save_info` always issues a sector erase (`0x30`) before programming, from IWRAM, but does not mask interrupts. `irqInit()` installs `IntrMain` in IWRAM and leaves VBlank with no user handler (safe); `UIAudio_Init()` registers `UIAudio_Timer1IRQ`, which the linked ELF places in `.text` on S71, and enables Timer1. In `Check_save_flag`, pressing B plays the back sound and immediately calls `Save_sav_info` to clear the recovery marker. With sounds enabled (default), Timer1 can therefore dispatch into S71-resident code during its erase. This is a verified unsafe execution path with a likely freeze/crash; no physical cartridge reproduction has been run.
 - **Correction implemented:** marked `UIAudio_Timer1IRQ`, `UIAudio_StopFromTimer`, and `UIAudio_StopHardware` as IWRAM code, preserving IRQ-based audio completion while S71 is busy. `make` passes. The linked ELF places `UIAudio_StopHardware` at `0x030011a0` (84 bytes) and `UIAudio_Timer1IRQ` at `0x030011f4` (12 bytes), both `.iwram`; the compiler inlined `UIAudio_StopFromTimer`, and disassembly shows the handler calls only the IWRAM helper. `IntrMain` is also `.iwram` at `0x030039e4`. `.iwram` is 0x3c30 bytes; static IWRAM data ends at `0x03007d38`, with `__sp_irq=0x03007fa0` (616-byte gap). The user stack is in EWRAM at `0x0203f000`. `git diff --check` passes. No hardware erase/save test was run, so physical behavior remains unverified.
 - **Still open in F-022:** identify whether Rev B's S98 `020` suffix changes the S98 part/ID/status details; validate status/error predicates against S98WS512PE0/S29WS512P and S71GL064A08/S29GL064A; address unbounded waits and error propagation only with safe cross-revision evidence.
-- **Next:** review and commit/push this build-verified correction with the audit checkpoints, then continue the S98 revision/ID and protocol/status work. No hardware trace or flash is planned.
+- **Commit:** `e2a8d976ff14a2859584182808e89953a200e41e` (`Keep audio timer IRQ safe during S71 writes`) contains the validated code fix and both audit documents. Local branch is one commit ahead of origin; push and verify the remote ref before further subsystem work.
+- **Next:** push `e2a8d976ff14a2859584182808e89953a200e41e`, verify `HEAD` and `origin/feature/mirrored-artwork`, then continue the S98 revision/ID and protocol/status work. No hardware trace or flash is planned.
 
-- **Live state:** branch `feature/mirrored-artwork`, HEAD `9822865e6ef82b99754e7eeba7f8dded5653fe71`, matching `origin/feature/mirrored-artwork`; both audit documents and `source/ezkernelnew.c` are modified locally and not yet committed. Target build artifacts are ignored. The user's untracked `files/` tree is untouched. No physical test or cartridge flash occurred.
+- **Live state:** branch `feature/mirrored-artwork`, HEAD `e2a8d976ff14a2859584182808e89953a200e41e`, one commit ahead of origin `9822865e6ef82b99754e7eeba7f8dded5653fe71`; tracked worktree is clean. Target build artifacts are ignored. The user's untracked `files/` tree is untouched. No physical test or cartridge flash occurred.
 
 ## F-022 checkpoint push verified (2026-10-16 01:29 UTC)
 
@@ -363,7 +364,7 @@ The release was created and subsequently corrected to use the cartridge-required
 
 ## Exact next actions
 
-1. Review `git diff -- source/ezkernelnew.c` and the linked ELF evidence for the IWRAM relocation; ensure only intended code and audit-doc changes are staged.
+1. Push local commit `e2a8d976ff14a2859584182808e89953a200e41e` and verify that `HEAD` and `origin/feature/mirrored-artwork` match.
 2. Verify primary datasheet details for S98WS512PE0/S29WS512P and S71GL064A08/S29GL064A: X0E IDs, status bits, write-buffer width, erase/program completion, and terminal errors.
 3. Resolve whether Rev B S98 suffix `020` shares the documented S98WS512PE0 die/ID. Preserve generic cross-revision support; do not guess ID rejection/dispatch or timeout values.
 4. Continue F-022 result propagation through NOR catalog, settings, and save-state callers; then resume F-011 offline startup-stall analysis. Preserve `files/` and release artifacts; no more diagnostic trace variants or hardware flash.
