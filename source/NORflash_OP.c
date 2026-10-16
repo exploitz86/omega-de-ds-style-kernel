@@ -14,6 +14,8 @@
 #include "lang.h"
 #include "Ezcard_OP.h"
 #include "GBApatch.h"
+#include "nor_flash_status.h"
+#include "nor_catalog_transaction.h"
 //#define DEBUG
 
 extern FM_NOR_FS pNorFS[MAX_NOR]EWRAM_BSS;
@@ -24,7 +26,61 @@ extern FIL gfile;
 extern u32 game_total_NOR;
 extern u32 iTrimSize;
 
+static int NOR_PersistCatalog(void *context)
+{
+	FM_NOR_FS *catalog = (FM_NOR_FS*)context;
+	return Save_NOR_info((u16*)catalog, sizeof(FM_NOR_FS)*MAX_NOR);
+}
+
+static u8 NOR_EraseAllPPB(void)
+{
+	vu16 *flash = (vu16*)FlashBase_S98;
+	u16 first, second;
+	NOR_StatusDecision decision;
+	u8 succeeded = 0;
+
+	/* Enter the PPB command set and launch its global erase algorithm. */
+	flash[0] = 0xF0;
+	flash[0x555] = 0xAA;
+	flash[0x2AA] = 0x55;
+	flash[0x555] = 0xC0;
+	flash[0] = 0x80;
+	flash[0] = 0x30;
+
+	/* The WS512P PPB algorithm requires at least 500 us before status reads. */
+	delay(3000);
+	for(;;)
+	{
+		/* The command selected the bank mapped at FlashBase_S98; poll its SA0. */
+		first = flash[0];
+		second = flash[0];
+		decision = NOR_ClassifyPPBStatusPair(first, second);
+		if(decision == NOR_STATUS_BUSY)
+			continue;
+		if(decision == NOR_STATUS_CONFIRM_DQ5)
+		{
+			first = flash[0];
+			second = flash[0];
+			decision = NOR_ClassifyDQ5ConfirmPair(first, second);
+			if(decision == NOR_STATUS_OPERATION_FAILED)
+				break;
+		}
+		else if(decision != NOR_STATUS_VERIFY_DATA)
+			break;
+
+		/* A cleared PPB reports DQ0=1 (unprotected). */
+		succeeded = NOR_PPBStatusIsErased(flash[0]);
+		break;
+	}
+
+	/* Always leave PPB mode, including DQ5 and PPB-status failure paths. */
+	flash[0] = 0x90;
+	flash[0] = 0x00;
+	return succeeded;
+}
+
 #define NOR_CAPACITY_BYTES 0x04000000UL
+#define NOR_WINDOW_BYTES   0x00800000UL
 #define NOR_BLOCK_SIZE     0x00020000UL
 #define NOR_MENU_WIDTH     168
 #define NOR_MENU_CROP_X    20
@@ -53,9 +109,9 @@ void Chip_Reset()
 	*((vu16 *)(FlashBase_S98)) = 0xF0 ;
 }
 //---------------------------------------------------------------
-void IWRAM_CODE Block_Erase(u32 blockAdd) //0x20000 BYTE pre block
+u8 Block_Erase(u32 blockAdd) //0x20000 BYTE pre block
 {
-	vu16 page,v1,v2;
+	vu16 page;
 	u32 Address;
 	u32 loop;
 
@@ -68,9 +124,7 @@ void IWRAM_CODE Block_Erase(u32 blockAdd) //0x20000 BYTE pre block
 	}
 	//u8 ramdata = *((vu8 *)(0xE000000+1)) ;
 	SetRompage(page);
-	//u16 norid = Read_S98NOR_ID();
 	Chip_Reset();
-	v1=0;v2=1;
 	if((blockAdd==0) || (blockAdd==0x3FE0000))
 	{
 		//Address=blockAdd;
@@ -82,11 +136,18 @@ void IWRAM_CODE Block_Erase(u32 blockAdd) //0x20000 BYTE pre block
 			*((vu16 *)(FlashBase_S98+0x555*2)) = 0xAA ;
 			*((vu16 *)(FlashBase_S98+0x2AA*2)) = 0x55 ;
 			*((vu16 *)(FlashBase_S98+Address+loop)) = 0x30 ;
-			do
+			if(!Wait_Flash_Operation((vu16*)FlashBase_S98,
+				(vu16*)(FlashBase_S98+Address+loop), 0xFFFF, 0, 0, 0))
 			{
-				v1 = *((vu16 *)(FlashBase_S98+Address+loop)) ;
-				v2 = *((vu16 *)(FlashBase_S98+Address+loop)) ;
-			}while((v1!=v2) || ((v1&0x80)!=0x80));
+				SetRompage(gl_currentpage);
+				return 0;
+			}
+			if(!Verify_Flash_Erased((vu16*)(FlashBase_S98+Address+loop),0x8000/2))
+			{
+				*((vu16*)FlashBase_S98) = 0xF0;
+				SetRompage(gl_currentpage);
+				return 0;
+			}
 		}
 	}
 	else
@@ -99,47 +160,79 @@ void IWRAM_CODE Block_Erase(u32 blockAdd) //0x20000 BYTE pre block
 		*((vu16 *)(FlashBase_S98+0x555*2)) = 0xAA ;
 		*((vu16 *)(FlashBase_S98+0x2AA*2)) = 0x55 ;
 		*((vu16 *)(FlashBase_S98+loop)) = 0x30 ;
-		do
+		if(!Wait_Flash_Operation((vu16*)FlashBase_S98,
+			(vu16*)(FlashBase_S98+loop), 0xFFFF, 0, 0, 0))
 		{
-			v1 = *((vu16 *)(FlashBase_S98+loop)) ;
-			v2 = *((vu16 *)(FlashBase_S98+loop)) ;
-		}while((v1!=v2) || ((v1&0x80)!=0x80));
+			SetRompage(gl_currentpage);
+			return 0;
+		}
+		if(!Verify_Flash_Erased((vu16*)(FlashBase_S98+loop),NOR_BLOCK_SIZE/2))
+		{
+			*((vu16*)FlashBase_S98) = 0xF0;
+			SetRompage(gl_currentpage);
+			return 0;
+		}
 	}
 	SetRompage(gl_currentpage);
+	return 1;
 }
 //-----------------------------------------------------------
-void Chip_Erase()
+static void NOR_ChipEraseProgress(void *context)
 {
 	char msg[128];
+	u32 *count = (u32*)context;
+	VBlankIntrWait();
+	VBlankIntrWait();
+	ShowTime(NOR_list,0);
+	NOR_RestoreFormatProgressBackground();
+
+	itoa(*count,msg,2);
+	DrawHZText12(msg,0,60,NOR_PROGRESS_Y,gl_color_text,1);
+	(*count)++;
+    VBlankIntrWait();
+}
+
+u8 Chip_Erase()
+{
 	u32 count=0;
-	vu16 v1,v2=0 ;
-	REG_IME = 0 ;
+	u32 page_index;
+	u32 byte_offset;
+	u16 old_ime = REG_IME;
+	REG_IME = 0;
 	*((vu16 *)(FlashBase_S98+0x555*2)) = 0xAA ;
 	*((vu16 *)(FlashBase_S98+0x2AA*2)) = 0x55 ;
 	*((vu16 *)(FlashBase_S98+0x555*2)) = 0x80 ;
 	*((vu16 *)(FlashBase_S98+0x555*2)) = 0xAA ;
 	*((vu16 *)(FlashBase_S98+0x2AA*2)) = 0x55 ;
 	*((vu16 *)(FlashBase_S98+0x555*2)) = 0x10 ;
-	do
+	if(!Wait_Flash_Operation((vu16*)FlashBase_S98, (vu16*)FlashBase_S98, 0xFFFF, 0,
+		NOR_ChipEraseProgress, &count))
 	{
-		VBlankIntrWait();
-		VBlankIntrWait();
-		ShowTime(NOR_list,0);
-		NOR_RestoreFormatProgressBackground();
-
-		itoa(count,msg,2);
-		DrawHZText12(msg,0,60,NOR_PROGRESS_Y,gl_color_text,1);
-		count++;
-
-		VBlankIntrWait();
-		v1 = *((vu16 *)(FlashBase_S98)) ;
-		v2 = *((vu16 *)(FlashBase_S98)) ;
-	}while(v1!=v2);
-	REG_IME = 1 ;
+		REG_IME = old_ime;
+		return 0;
+	}
+	for(page_index=0;page_index<(NOR_CAPACITY_BYTES/NOR_WINDOW_BYTES);page_index++)
+	{
+		SetRompage((u16)(gl_currentpage + page_index*0x1000));
+		for(byte_offset=0;byte_offset<NOR_WINDOW_BYTES;byte_offset+=2)
+		{
+			if(*((vu16*)(FlashBase_S98+byte_offset)) != 0xFFFF)
+			{
+				SetRompage(gl_currentpage);
+				REG_IME = old_ime;
+				return 0;
+			}
+			if((byte_offset & 0x000FFFFF) == 0x000FFFFE)
+				NOR_ChipEraseProgress(&count);
+		}
+	}
+	SetRompage(gl_currentpage);
+	REG_IME = old_ime;
+	return 1;
 }
 
 //-----------------------------------------------------------
-void FormatNor()
+u8 FormatNor()
 {
 	char msg[128];
 	sprintf(msg,"%s",gl_formatnor_info1);
@@ -152,19 +245,20 @@ void FormatNor()
 		scanKeys();
 		u16 keys = keysDown();
 		if (keys & KEY_A) {
-			Chip_Erase();
+			if(!Chip_Erase())
+				return 2;
 			memset(pNorFS,00,sizeof(FM_NOR_FS)*MAX_NOR);
-			return;
+			return 1;
 		}
 		else if(keys & KEY_B) {
-			return;
+			return 0;
 		}
 	}
 }
 //---------------------------------------------------------------
-void WriteFlash(u32 address,u8 *buffer,u32 size)
+u8 WriteFlash(u32 address,u8 *buffer,u32 size)
 {
-	vu16 page,v1,v2;
+	vu16 page;
 	register u32 loopwrite ;
 	vu16* buf = (vu16*)buffer ;
 
@@ -177,25 +271,26 @@ void WriteFlash(u32 address,u8 *buffer,u32 size)
 	SetRompage(page);
 
 	Chip_Reset();
-	v1=0;v2=1;
 	for(loopwrite=0;loopwrite<(size/2);loopwrite++)
 	{
 		*((vu16 *)(FlashBase_S98+0x555*2)) = 0xAA ;
 		*((vu16 *)(FlashBase_S98+0x2AA*2)) = 0x55 ;
 		*((vu16 *)(FlashBase_S98+0x555*2)) = 0xA0 ;
 		*((vu16 *)(FlashBase_S98+address+loopwrite*2)) = buf[loopwrite];
-		do
+		if(!Wait_Flash_Operation((vu16*)FlashBase_S98,
+			(vu16*)(FlashBase_S98+address+loopwrite*2), buf[loopwrite], 0, 0, 0))
 		{
-			v1 = *((vu16 *)(FlashBase_S98+address+loopwrite*2)) ;
-			v2 = *((vu16 *)(FlashBase_S98+address+loopwrite*2)) ;
-		}while(v1!=v2);
+			SetRompage(gl_currentpage);
+			return 0;
+		}
 	}
 	SetRompage(gl_currentpage);
+	return 1;
 }
 //---------------------------------------------------------------
-void IWRAM_CODE WriteFlash_with32word(u32 address,u8 *buffer,u32 size)
+u8 WriteFlash_with32word(u32 address,u8 *buffer,u32 size)
 {
-	vu16 page,v1,v2;
+	vu16 page;
 	register u32 loopwrite ;
 	vu16* buf = (vu16*)buffer ;
 	u32 i;
@@ -209,7 +304,6 @@ void IWRAM_CODE WriteFlash_with32word(u32 address,u8 *buffer,u32 size)
 	SetRompage(page);
 
 	Chip_Reset();
-	v1=0;v2=1;
 	for(loopwrite=0;loopwrite<(size/32);loopwrite++)
 	{
 		*((vu16 *)(FlashBase_S98+0x555*2)) = 0xAA ;
@@ -224,13 +318,23 @@ void IWRAM_CODE WriteFlash_with32word(u32 address,u8 *buffer,u32 size)
 		*((vu16 *)(FlashBase_S98+address+loopwrite*32)) = 0x29;
 
 		delay(40);
-		do
+		if(!Wait_Flash_Operation((vu16*)FlashBase_S98,
+			(vu16*)(FlashBase_S98+address+loopwrite*32+0xF*2),
+			buf[loopwrite*16+15], 1, 0, 0))
 		{
-			v1 = *((vu16 *)(FlashBase_S98+address+loopwrite*32+0xF*2)) ;
-			v2 = *((vu16 *)(FlashBase_S98+address+loopwrite*32+0xF*2)) ;
-		}while(v1!=v2);
+			SetRompage(gl_currentpage);
+			return 0;
+		}
+		if(!Verify_Flash_Data((vu16*)(FlashBase_S98+address+loopwrite*32),
+			&buf[loopwrite*16],16))
+		{
+			*((vu16*)FlashBase_S98) = 0xF0;
+			SetRompage(gl_currentpage);
+			return 0;
+		}
 	}
 	SetRompage(gl_currentpage);
+	return 1;
 }
 //-----------------------------------------------------------
 u32 Loadfile2NOR(TCHAR *filename, u32 NORaddress,u16 have_patch,u8 SAVEMODE)
@@ -245,6 +349,7 @@ u32 Loadfile2NOR(TCHAR *filename, u32 NORaddress,u16 have_patch,u8 SAVEMODE)
 	u32 file_open;
 	char msg[128];
 	FM_NOR_FS tmpNorFS;
+	FM_NOR_FS previousNorFS;
 	char flag[4];
 	u16 flag_64MBrom;
 	u16 norid;
@@ -308,23 +413,8 @@ u32 Loadfile2NOR(TCHAR *filename, u32 NORaddress,u16 have_patch,u8 SAVEMODE)
 	tmpNorFS.is_64MBrom = flag_64MBrom;
 	tmpNorFS.savemode = SAVEMODE;
 
-	////////////////// erase all BBP
-	*((vu16 *)(FlashBase_S98)) = 0xF0 ;
-	*((vu16 *)(FlashBase_S98+0x555*2)) = 0xAA ;
-	*((vu16 *)(FlashBase_S98+0x2AA*2)) = 0x55 ;
-	*((vu16 *)(FlashBase_S98+0x555*2)) = 0xC0 ;
-	*((vu16 *)(FlashBase_S98+0x000*2)) = 0x80 ;
-	*((vu16 *)(FlashBase_S98+0x000*2)) = 0x30 ;
-	{
-		int polling_counter = 0x15000;
-		do {
-			(void)*((vu16 *)(FlashBase_S98+ 0x5C0000));
-			polling_counter--;
-		} while (polling_counter);
-	}
-	*((vu16 *)(FlashBase_S98+0x000*2)) = 0x90 ;
-	*((vu16 *)(FlashBase_S98+0x000*2)) = 0x00 ;
-	/////////////////
+	if(!NOR_EraseAllPPB())
+		goto close_file;
 
 	Clear(60,160-15,120,15,gl_color_cheat_black,1);
 	DrawHZText12(gl_writing,0,70,160-15,0x7fff,1);
@@ -354,8 +444,9 @@ u32 Loadfile2NOR(TCHAR *filename, u32 NORaddress,u16 have_patch,u8 SAVEMODE)
 			GBApatch_Cleanrom_NOR((u32*)pReadCache,blocknum);
 		}
 
-		Block_Erase(blocknum+NORaddress);
-		WriteFlash_with32word(blocknum+NORaddress,pReadCache,NOR_BLOCK_SIZE);
+		if(!Block_Erase(blocknum+NORaddress) ||
+		   !WriteFlash_with32word(blocknum+NORaddress,pReadCache,NOR_BLOCK_SIZE))
+			goto close_file;
 	}
 
 	if(f_close(&gfile) != FR_OK)
@@ -367,14 +458,17 @@ u32 Loadfile2NOR(TCHAR *filename, u32 NORaddress,u16 have_patch,u8 SAVEMODE)
 
 	if(have_patch && add_patch)
 	{
-		Block_Erase(blocknum+NORaddress);
+		if(!Block_Erase(blocknum+NORaddress))
+			return 1;
 		GBApatch_NOR((u32*)pReadCache,NOR_BLOCK_SIZE,blocknum);
-		WriteFlash_with32word(blocknum+NORaddress,pReadCache,NOR_BLOCK_SIZE);
+		if(!WriteFlash_with32word(blocknum+NORaddress,pReadCache,NOR_BLOCK_SIZE))
+			return 1;
 	}
 
-	// Commit the catalog entry only after every source block was read/programmed.
-	dmaCopy(&tmpNorFS,&pNorFS[game_total_NOR], sizeof(FM_NOR_FS));
-	Save_NOR_info((u16*)pNorFS,sizeof(FM_NOR_FS)*MAX_NOR);
+	// Publish the new slot only while persistence sees it; restore RAM on failure.
+	if(!NOR_CommitCatalogSlot(&pNorFS[game_total_NOR], &tmpNorFS, &previousNorFS,
+		sizeof(FM_NOR_FS), NOR_PersistCatalog, pNorFS))
+		return 1;
 	return 0;
 
 close_file:

@@ -47,6 +47,7 @@ extern u16 gl_SD_R;
 extern u16 gl_SD_G;
 extern u16 gl_SD_B;
 extern void UIAudio_HandleKeys(u16 keysdown, u16 keysrepeat);
+extern void Show_error_num(u8 error_num);
 
 void save_set2_info(void);
 extern void Draw_select_icon(u32 X,u32 Y,u32 mode);
@@ -583,7 +584,8 @@ void save_set2_info(void)
 	SET_info_buffer[assress_toggle_backup] = toggle_backup;
 	SET_info_buffer[assress_toggle_reset] = toggle_reset;
 
-	Save_SET_info(SET_info_buffer,0x200);
+	if(!Save_SET_info(SET_info_buffer,0x200))
+		Show_error_num(3);
 	{
 		u16 led_status = (led_open_sel<<7) | (Breathing_R<<5) | (Breathing_G<<4) | (Breathing_B<<3) | (SD_R<<2) | (SD_G<<1) | (SD_B);
 		Set_LED_control(led_status);
