@@ -34,6 +34,14 @@
 - **Validation:** `sh scripts/test-nor-flash-status-host.sh` PASS; `sh scripts/test-nor-catalog-recovery-host.sh` PASS; `git diff --check` PASS. The new F-037 conclusion is conditional on exact board fitment and has no production code fix. Main currently tracks origin at `27c26631667182c2a264c5b3d1371ba5e4fbfa75`; `feature/mirrored-artwork` remains on that same prior commit.
 - **Next:** stage only the two audit documents and the NOR catalog host test, inspect the staged diff, commit on `main`, push normally, and verify remote hashes. Record the actual commit/push outcome afterward.
 
+## 2026-10-16 23:36 UTC — Audit checkpoint pushed to main
+
+- **Operation/result:** committed the two audit ledgers and the F-032 host characterization as `33dcdffb151dadbf0e0c7345aa075dba43cc01e4` (`Document S98 020 NOR compatibility risk`) on `main`; pushed normally to `origin/main`. `git ls-remote` confirms `origin/main=33dcdffb151dadbf0e0c7345aa075dba43cc01e4`. The original `feature/mirrored-artwork` remains at `27c26631667182c2a264c5b3d1371ba5e4fbfa75` as a retained reference. GitHub's default remains `main`.
+- **Included paths:** `CODEX_KERNEL_AUDIT_HANDOFF.md`, `CODEX_KERNEL_AUDIT_PROGRESS.md`, and `tests/nor-catalog-recovery-host.c`. No firmware source changed. All `files/` content was excluded and preserved.
+- **Final local state:** local `main` tracks `origin/main` at `33dcdff`; working tree has no tracked/staged modifications, only user-owned untracked `files/`. Branch `feature/mirrored-artwork` remains locally available and tracks its remote at `27c2663`.
+- **Validation:** `sh scripts/test-nor-flash-status-host.sh`, `sh scripts/test-nor-catalog-recovery-host.sh`, and staged `git diff --check` passed before commit. Remote refs were queried after push. No physical cartridge/flash test occurred.
+- **Next:** continue F-022/F-037 with exact S98 `020` part identification and page/erase/PPB mapping; keep the finding conditional and do not enable `0x220C` until device topology is verified. Then resume the unbounded status-poll review. Preserve `files/`.
+
 ## 2026-10-16 23:27 UTC — Optional save backups do not recover F-036
 
 - **Phase/subsystem:** F-036 existing save replacement; audit continuation after the F-033–F-035 push. **Objective:** check whether the existing save backup feature already preserves or restores old saves after failed replacement, before designing a duplicate mechanism.
