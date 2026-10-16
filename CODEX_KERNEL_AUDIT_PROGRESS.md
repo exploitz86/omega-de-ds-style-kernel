@@ -1,5 +1,22 @@
 # Codex Kernel Audit Progress
 
+### F-009 manually transferred save behavior checked against launcher source (2026-10-16 01:05 UTC)
+
+- **Objective:** answer whether a save file created on another system can be copied into the save folder after the LFN changes, and identify filename/format conditions from the actual loader.
+- **Investigation:** reviewed `SAVER_FOLDER`, `Process_savefile`, `Get_savefilesize`, `Loadsavefile`, `SavefileWrite`, and `Save_savefile` in `source/ez_define.h` and `source/ezkernelnew.c`; checked the existing in-memory FatFs long-name regression.
+- **Verified behavior:** the folder is `/SYSTEM/SAVER`. GBA launch derives `<full ROM filename stem>.sav` (the emulator path uses `.esv`). `Process_savefile` opens an existing file by that exact name and uses its file length; `Loadsavefile` reads the file bytes as-is into the save memory, requiring a complete read and capping reads at 128 KiB. It performs no conversion or header stripping. On later save, the recorded save length is used to write raw bytes back.
+- **Compatibility conclusion:** a manually copied raw GBA save remains usable if it is placed at `/SYSTEM/SAVER/<ROM basename>.sav`, corresponds to the same game/save hardware, and is in a raw format accepted by the cartridge. A foreign filename (for example, emulator internal title or game-code naming) must be renamed to the full ROM basename. For long LFN ROM names, use the full current basename, not the old 99-byte display prefix. The LFN work does not alter save payload bytes or the detected save mode.
+- **Verified caveat / unresolved interoperability:** existing file size is trusted rather than compared with `Get_savefilesize(saveMODE)`; only a 128-KiB upper cap is applied during load. The kernel does not detect or convert emulator-specific headers, byte-order transforms, or other wrappers. Thus “copy without issue” is conditional on matching the raw save representation and size; cross-emulator save-format compatibility has not been tested. No code change is justified solely from this source review.
+- **Validation:** `sh scripts/test-fatfs-long-name-host.sh` exited 0 (`FatFs long-name identity scenarios passed.`). This exercises LFN identity/path behavior on an in-memory FatFs volume, not actual cartridge save transfer, save-type interoperability, or hardware.
+- **Repository state:** branch `feature/mirrored-artwork`, HEAD and origin-tracking ref remain `1ca39dbeec264e1ea592f09480c54b2a9a0341d0`. This entry and its handoff update are local documentation changes. Preserve the three user-owned untracked files under `files/`; do not stage them.
+- **Next:** continue F-022 as listed below: inspect NOR erase/program polling and `Save_info` result propagation, preserving generic revision support and avoiding guessed timeouts or hardware flashing.
+
+### F-009 push-status checkpoint verified (2026-10-16 01:03 UTC)
+
+- **Push:** documentation commit `1ca39dbeec264e1ea592f09480c54b2a9a0341d0` (`Record F-009 push verification`) advanced `origin/feature/mirrored-artwork` from `4d01df8` to `1ca39db`.
+- **Verification:** local `HEAD` and `origin/feature/mirrored-artwork` both resolve to `1ca39dbeec264e1ea592f09480c54b2a9a0341d0`. Immediately after the push, status showed no tracked modifications and only the three user-owned `files/` entries. This status note itself is a new local change to the two audit documents and should be committed with the next F-022 checkpoint.
+- **Next:** continue the offline F-022 NOR status/result review. No production source or user data changed in this push-status step.
+
 ### F-009 long-name identity and save compatibility fixes validated locally (2026-10-16 00:52 UTC)
 
 - **Objective:** close the compatibility/memory review raised by the user, including SFN identity, legacy saves, manually transferred saves, artwork lookup paths, and maximum-length backup rotation.
