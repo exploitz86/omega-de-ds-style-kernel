@@ -1,5 +1,11 @@
 # Codex Kernel Audit Progress
 
+## 2026-10-16 23:56 UTC — Verification record pushed
+
+- **Commit/push:** `2af3c2b84ac9bedd35b1ce723fcabb1eedc081b7` (`Verify audit checkpoint push`) is on local `main`, `origin/main`, and `origin/HEAD`; `git ls-remote` confirmed it. The preceding issue-priority checkpoint is `9adfb10b4e491fc2ad279b2d8960cca5c2353fa3`, and the firmware fix is `f44d8f78a147b27ee78aa0688590be522cdc40ce`. `feature/mirrored-artwork` remains at `27c26631667182c2a264c5b3d1371ba5e4fbfa75` remotely. No force push.
+- **Working tree:** tracked tree clean; `?? files/` is the only untracked content and remains user-owned/unmodified. Main is the default branch.
+- **Next:** continue the documented F-022 S71 accepted-device timing review; do not add finite timeouts without complete timing bounds. The full remaining issue list and resolution-risk estimates are retained in this journal and the handoff.
+
 ## 2026-10-16 23:54 UTC — Audit checkpoint push verified
 
 - **Repository:** local `main`, `origin/main`, and `origin/HEAD` are at `9adfb10b4e491fc2ad279b2d8960cca5c2353fa3` (`Record NOR fix and open audit priorities`). The preceding production fix is `f44d8f78a147b27ee78aa0688590be522cdc40ce` (`Mask VBlank during S71 flash commands`). `feature/mirrored-artwork` remains at `27c26631667182c2a264c5b3d1371ba5e4fbfa75` locally/remotely. Both remote refs were queried after push; main matches. Tracked tree is clean; preserve user-owned untracked `files/`.

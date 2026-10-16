@@ -1,5 +1,11 @@
 # DS Style Kernel Audit — Standalone Handoff
 
+## Latest push verification (2026-10-16 23:56 UTC)
+
+- `main` is the default branch; local `main`, `origin/main`, and `origin/HEAD` were verified at `2af3c2b84ac9bedd35b1ce723fcabb1eedc081b7` (`Verify audit checkpoint push`). The remote feature branch remains at `27c26631667182c2a264c5b3d1371ba5e4fbfa75`.
+- Main contains the target-validated F-022 VBlank fix (`f44d8f78a147b27ee78aa0688590be522cdc40ce`) and the open-issue/difficulty checkpoint (`9adfb10b4e491fc2ad279b2d8960cca5c2353fa3`). Tracked files were clean at verification; preserve the user-owned untracked `files/` tree.
+- Continue from F-022 timing/device bounds, then assess F-032/F-036 with full interruption-injection coverage. Keep F-011 lower priority per the user's defaults preference.
+
 ## Latest verified repository state (2026-10-16 23:54 UTC)
 
 - Local `main`, `origin/main`, and `origin/HEAD` are at `9adfb10b4e491fc2ad279b2d8960cca5c2353fa3` (`Record NOR fix and open audit priorities`); the remote hash was queried after push. The preceding code fix is `f44d8f78a147b27ee78aa0688590be522cdc40ce` (`Mask VBlank during S71 flash commands`). Local/remote `feature/mirrored-artwork` remain at `27c26631667182c2a264c5b3d1371ba5e4fbfa75`.
@@ -764,7 +770,7 @@ The release was created and subsequently corrected to use the cartridge-required
 
 ## Current audit phase status
 
-1. Repository identity/state: the target is the original EZ-FLASH Omega Definitive Edition kernel. Local `main` is at `9adfb10b4e491fc2ad279b2d8960cca5c2353fa3`, matching `origin/main`; `main` is the default. Retained `feature/mirrored-artwork` is at `27c26631667182c2a264c5b3d1371ba5e4fbfa75`. The tracked tree is clean; preserve untracked user-owned `files/`.
+1. Repository identity/state: the target is the original EZ-FLASH Omega Definitive Edition kernel. `main` is the default and tracking `origin/main`; the 23:56 push verification is at the top of this file. Retained `feature/mirrored-artwork` is at `27c26631667182c2a264c5b3d1371ba5e4fbfa75`. The tracked tree is clean; preserve untracked user-owned `files/`.
 2. Broad source/comment/docs review: prior review covered firmware C/assembly, FatFs, UI/storage, build/assets, installer/CI, and guide. Physical SD/NOR/PSRAM behavior remains outside local validation. The audit is not complete.
 3. F-009 long-name identity/artwork work: complete, host-tested, target-built, and pushed according to later dated entries; physical cartridge/UI behavior remains untested.
 4. **Open Medium findings:** F-011 (settings truncation/data-loss risk and separate unexplained startup/thumbnail regression); F-022 (NOR liveness/device support, S71 IRQ safety, and hardware timing limitations); F-032 (single-copy NOR catalog interruption risk); F-036 (existing SD save loss after failed replacement). F-037 is an informational product-identification evidence gap after correction, not a likely defect. CL-01–CL-04 are low-priority deferred/documentation/release-label items.
