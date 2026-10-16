@@ -1,5 +1,12 @@
 # DS Style Kernel Audit — Standalone Handoff
 
+## Latest verified repository state (2026-10-16 23:54 UTC)
+
+- Local `main`, `origin/main`, and `origin/HEAD` are at `9adfb10b4e491fc2ad279b2d8960cca5c2353fa3` (`Record NOR fix and open audit priorities`); the remote hash was queried after push. The preceding code fix is `f44d8f78a147b27ee78aa0688590be522cdc40ce` (`Mask VBlank during S71 flash commands`). Local/remote `feature/mirrored-artwork` remain at `27c26631667182c2a264c5b3d1371ba5e4fbfa75`.
+- Tracked working tree is clean; only user-owned untracked `files/` remains. Do not stage or alter it. `main` remains the default branch.
+- The open issue list and resolution-difficulty estimates are in the next checkpoint below and the 23:52 entry in the progress journal. F-022's VBlank mask is pushed and locally validated; hardware timing remains unverified and status polling remains unbounded.
+- **Next:** continue F-022 timing/device-bound analysis without inventing timeouts, then evaluate F-032 and F-036 only with full interruption-state tests. Keep F-011 lower priority under the user's defaults preference.
+
 ## Live repository checkpoint and open issue estimates (2026-10-16 23:52 UTC)
 
 - **Git state:** local `main`, `origin/main`, and `origin/HEAD` are at `f44d8f78a147b27ee78aa0688590be522cdc40ce` (`Mask VBlank during S71 flash commands`); remote verification returned the same full hash. `feature/mirrored-artwork` remains at `27c26631667182c2a264c5b3d1371ba5e4fbfa75`. This ledger follow-up will be committed separately. Preserve user-owned untracked `files/` exactly; never stage it.
@@ -757,7 +764,7 @@ The release was created and subsequently corrected to use the cartridge-required
 
 ## Current audit phase status
 
-1. Repository identity/state: the target is the original EZ-FLASH Omega Definitive Edition kernel. Local `main` is at `f44d8f78a147b27ee78aa0688590be522cdc40ce`, matching `origin/main`; `main` is the default. Retained `feature/mirrored-artwork` is at `27c26631667182c2a264c5b3d1371ba5e4fbfa75`. Only the two audit ledgers are pending follow-up edits; preserve untracked user-owned `files/`.
+1. Repository identity/state: the target is the original EZ-FLASH Omega Definitive Edition kernel. Local `main` is at `9adfb10b4e491fc2ad279b2d8960cca5c2353fa3`, matching `origin/main`; `main` is the default. Retained `feature/mirrored-artwork` is at `27c26631667182c2a264c5b3d1371ba5e4fbfa75`. The tracked tree is clean; preserve untracked user-owned `files/`.
 2. Broad source/comment/docs review: prior review covered firmware C/assembly, FatFs, UI/storage, build/assets, installer/CI, and guide. Physical SD/NOR/PSRAM behavior remains outside local validation. The audit is not complete.
 3. F-009 long-name identity/artwork work: complete, host-tested, target-built, and pushed according to later dated entries; physical cartridge/UI behavior remains untested.
 4. **Open Medium findings:** F-011 (settings truncation/data-loss risk and separate unexplained startup/thumbnail regression); F-022 (NOR liveness/device support, S71 IRQ safety, and hardware timing limitations); F-032 (single-copy NOR catalog interruption risk); F-036 (existing SD save loss after failed replacement). F-037 is an informational product-identification evidence gap after correction, not a likely defect. CL-01–CL-04 are low-priority deferred/documentation/release-label items.
@@ -767,7 +774,6 @@ The release was created and subsequently corrected to use the cartridge-required
 
 ## Exact next actions
 
-1. Commit and push this audit-ledger follow-up to `main`; the source fix is already committed at `f44d8f78a147b27ee78aa0688590be522cdc40ce`. Stage only the two ledgers and verify remote refs afterward. Do not stage `files/`.
-2. Continue F-022 timing/device review as listed in the live checkpoint at the top of this file.
-3. Keep F-037 out of active defect priority unless exact original-DE part marking, BOM, or safe ID capture establishes the candidate OPN and topology. Do not infer original-DE support from the DE B changelog.
-4. Update both ledgers at every milestone. Preserve user files and existing release assets; do not perform destructive hardware flash operations.
+1. Continue F-022 timing/device review as listed in the latest verified repository checkpoint at the top of this file. Retain the no-finite-timeout finding unless complete, calibrated bounds cover all supported device operations.
+2. Keep F-037 out of active defect priority unless exact original-DE part marking, BOM, or safe ID capture establishes the candidate OPN and topology. Do not infer original-DE support from the DE B changelog.
+3. Then assess F-032 and F-036 with explicit fault-injection/recovery matrices. Preserve user files and existing release assets; do not perform destructive hardware flash operations.

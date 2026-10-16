@@ -1,5 +1,11 @@
 # Codex Kernel Audit Progress
 
+## 2026-10-16 23:54 UTC — Audit checkpoint push verified
+
+- **Repository:** local `main`, `origin/main`, and `origin/HEAD` are at `9adfb10b4e491fc2ad279b2d8960cca5c2353fa3` (`Record NOR fix and open audit priorities`). The preceding production fix is `f44d8f78a147b27ee78aa0688590be522cdc40ce` (`Mask VBlank during S71 flash commands`). `feature/mirrored-artwork` remains at `27c26631667182c2a264c5b3d1371ba5e4fbfa75` locally/remotely. Both remote refs were queried after push; main matches. Tracked tree is clean; preserve user-owned untracked `files/`.
+- **Scope/validation:** the documentation checkpoint records the F-037 product-scope correction, F-009 resolved status, remaining issue severities/difficulty estimates, and the F-022 fix evidence. The firmware commit passed `make -B`, both NOR host suites, the Bash audit verification script, Cppcheck, and `git diff --check`; no physical hardware was tested.
+- **Next:** continue F-022 by determining whether a complete and calibrated finite polling bound can be established for every accepted S71 part/operation. If not, retain the no-timeout finding. Then assess F-032/F-036 recovery designs against interruption-injection coverage. Keep `files/` untouched.
+
 ## 2026-10-16 23:52 UTC — VBlank fix pushed; open issue difficulty review
 
 - **Commit/push:** `f44d8f78a147b27ee78aa0688590be522cdc40ce` (`Mask VBlank during S71 flash commands`) is on local `main`, `origin/main`, and `origin/HEAD`. `git ls-remote origin refs/heads/main` returned the same full hash. The feature reference remains `27c26631667182c2a264c5b3d1371ba5e4fbfa75`. No force push. Tracked tree is clean after the source fix commit; only user-owned untracked `files/` remains. The follow-up edit to these two ledgers is being prepared separately; do not stage `files/`.
