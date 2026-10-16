@@ -430,7 +430,11 @@ u8 IWRAM_CODE Save_info(u32 info_offset, u16 * info_buffer,u32 buffersize)
 	u32 offset;
 	vu16* buf = (vu16*)info_buffer ;
 	register u32 loopwrite ;
+	u16 old_ie = REG_IE;
+	u8 succeeded = 0;
 
+	/* The default VBlank handler is in S71 ROM, which is busy during these commands. */
+	REG_IE = old_ie & (u16)~IRQ_VBLANK;
 	u16 S71id = Read_S71NOR_ID();
 	*((vu16 *)(FlashBase_S71)) = 0xF0 ;
 
@@ -444,12 +448,9 @@ u8 IWRAM_CODE Save_info(u32 info_offset, u16 * info_buffer,u32 buffersize)
 	*((vu16 *)(FlashBase_S71+offset)) = 0x30 ;//erase
 	if(!Wait_Flash_Operation((vu16*)FlashBase_S71,
 		(vu16*)(FlashBase_S71+offset), 0xFFFF, 0, 0, 0))
-		return 0;
+		goto save_info_done;
 	if(!Verify_Flash_Erased((vu16*)(FlashBase_S71+offset),0x10000/2))
-	{
-		*((vu16*)FlashBase_S71) = 0xF0;
-		return 0;
-	}
+		goto save_info_done;
 	//erase finish
 	if(S71id == 0x2202) //PL064
 	{
@@ -461,7 +462,7 @@ u8 IWRAM_CODE Save_info(u32 info_offset, u16 * info_buffer,u32 buffersize)
 			*((vu16 *)(FlashBase_S71+offset+loopwrite*2)) = buf[loopwrite];
 			if(!Wait_Flash_Operation((vu16*)FlashBase_S71,
 				(vu16*)(FlashBase_S71+offset+loopwrite*2), buf[loopwrite], 0, 0, 0))
-				return 0;
+				goto save_info_done;
 		}
 	}
 	else { //GL064
@@ -480,18 +481,18 @@ u8 IWRAM_CODE Save_info(u32 info_offset, u16 * info_buffer,u32 buffersize)
 			if(!Wait_Flash_Operation((vu16*)FlashBase_S71,
 				(vu16*)(FlashBase_S71+offset+loopwrite*32+0x1E),
 				buf[loopwrite*16+15], 1, 0, 0))
-				return 0;
+				goto save_info_done;
 			if(!Verify_Flash_Data((vu16*)(FlashBase_S71+offset+loopwrite*32),
 				&buf[loopwrite*16],16))
-			{
-				*((vu16*)FlashBase_S71) = 0xF0;
-				return 0;
-			}
+				goto save_info_done;
 		}
 	}
 
+	succeeded = 1;
+save_info_done:
 	*((vu16 *)(FlashBase_S71)) = 0xF0;
-	return 1;
+	REG_IE = old_ie;
+	return succeeded;
 }
 
 // --------------------------------------------------------------------
