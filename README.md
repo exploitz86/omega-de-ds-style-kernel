@@ -28,6 +28,12 @@ Read the complete [DS Style User Guide](https://frankiet19.github.io/omega-de-ds
 - UI sounds
 - Runtime settings stored in readable `SYSTEM/SETTINGS.TXT`
 
+## Transparent mirrored thumbnails
+
+The forked DS Style Thumbnail Scraper can create mirrored thumbnails with selective transparency. Keep the `DST1` marker it writes into BMP header bytes 6–9; the launcher uses that marker to make zero-valued RGB555 pixels transparent while drawing the other pixels normally. This lets the artwork blend with the launcher background. Without the marker, the thumbnail is drawn as an ordinary opaque image.
+
+Marked thumbnails use the launcher's standard 16-bit, uncompressed, top-down BMP layout: 120 × 80 pixels for title artwork or 80 × 80 for box artwork. The marker does not provide a full alpha channel; pure black (RGB555 value `0x0000`) is transparent in a marked image, so use a nonzero near-black value where black must remain visible. The companion scraper creates the marker and pixel data together; do not remove or edit the marker when copying its mirrored thumbnails.
+
 ## Building
 
 On Windows, install devkitPro/devkitARM and run:

@@ -1,5 +1,10 @@
 # Changelog
 
+## DS Style v7.4.6-test (hardware-test candidate)
+
+- Built from the current audit branch with the EWRAM user-stack relocation and S71 VBlank masking for hardware verification.
+- This candidate has not been tested on a physical cartridge and is not a published release. Keep a known-good kernel available for recovery.
+
 ## DS Style v7.4.1
 
 - Prevented failed SD reads from loading stale data into saves, save states, or sectors.

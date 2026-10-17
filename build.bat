@@ -10,22 +10,22 @@ echo Done!
 
 if not exist images\blank\SD_LIST.h (
 	echo Missing images\blank\SD_LIST.h
-	echo Add SD_LIST.bmp, SD_HORIZONTAL.bmp, SD_VERTICAL.bmp, SET.bmp, START.bmp, and HELP.bmp to images\blank, then run Build Skin Files.bat first.
+	echo Add SD_LIST.bmp, SD_HORIZONTAL.bmp, SD_VERTICAL.bmp, SET.bmp, START.bmp, and HELP.bmp to images\blank, then run Grit\Build Skin Files.bat first.
 	goto :done
 )
 if not exist images\blank\SET.h (
 	echo Missing images\blank\SET.h
-	echo Add SD_LIST.bmp, SD_HORIZONTAL.bmp, SD_VERTICAL.bmp, SET.bmp, START.bmp, and HELP.bmp to images\blank, then run Build Skin Files.bat first.
+	echo Add SD_LIST.bmp, SD_HORIZONTAL.bmp, SD_VERTICAL.bmp, SET.bmp, START.bmp, and HELP.bmp to images\blank, then run Grit\Build Skin Files.bat first.
 	goto :done
 )
 if not exist images\blank\START.h (
 	echo Missing images\blank\START.h
-	echo Add SD_LIST.bmp, SD_HORIZONTAL.bmp, SD_VERTICAL.bmp, SET.bmp, START.bmp, and HELP.bmp to images\blank, then run Build Skin Files.bat first.
+	echo Add SD_LIST.bmp, SD_HORIZONTAL.bmp, SD_VERTICAL.bmp, SET.bmp, START.bmp, and HELP.bmp to images\blank, then run Grit\Build Skin Files.bat first.
 	goto :done
 )
 if not exist images\blank\HELP.h (
 	echo Missing images\blank\HELP.h
-	echo Add SD_LIST.bmp, SD_HORIZONTAL.bmp, SD_VERTICAL.bmp, SET.bmp, START.bmp, and HELP.bmp to images\blank, then run Build Skin Files.bat first.
+	echo Add SD_LIST.bmp, SD_HORIZONTAL.bmp, SD_VERTICAL.bmp, SET.bmp, START.bmp, and HELP.bmp to images\blank, then run Grit\Build Skin Files.bat first.
 	goto :done
 )
 
