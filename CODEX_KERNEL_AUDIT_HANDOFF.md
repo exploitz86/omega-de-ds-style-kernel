@@ -2,6 +2,18 @@
 
 ## Active continuation — owner-reported responsiveness regression (2026-10-17 00:30 UTC)
 
+### Revision-agnostic continuation policy (2026-10-17 18:22 UTC)
+
+- The owner explicitly directed that all fixes pursued from this point forward must be hardware-revision agnostic.
+- Observed original-DE/Rev.B differences remain useful as diagnostic evidence, but they do not justify a patch that is only valid for one board revision.
+- Continue only with failures, timing issues, or persistence paths for which one fix works correctly across all supported board revisions, without revision-specific branching.
+- Any proposal that depends on a particular board revision must be deferred, even if it could address an observed symptom on that revision.
+
+### Commit/push and branch transition (2026-10-17 18:29 UTC)
+
+- **Starting state:** `main` at `cdb3a8d` matched `origin/main`. The only tracked modifications were this handoff and the progress ledger, containing the revision-agnostic policy checkpoint. `files/agent_prompt.txt` is user-provided untracked content; read it as requested, but do not stage or modify it.
+- **Requested sequence:** commit and push only the two audit ledgers to `main`, then create/check out `copilot` from the pushed `main` and continue the audit using the prompt. Do not push `copilot` unless separately requested or appropriate after validated audit work.
+
 - **Live Git state:** `main` is checked out at local commit `c2a2faf39ce10d7ca5e1c30ce3ec55917d1dd743` (`Document DST1 thumbnails and refresh test build`), one commit ahead of `origin/main` at `1940086805cb8cd4dac96f7c74ca774024db39dc`. Both audit ledgers have uncommitted updates. Preserve the user-owned untracked `files/` tree; the only authorized modification there was refreshing `files/candidate/ezkernelnew-stack-relocation.bin`.
 - **Current audit objective:** investigate the owner's reported responsiveness regression on the current hardware candidate, then resume the highest-priority open audit finding. The low-effort fixes and current F-026 candidate build are complete; the candidate has now had an initial owner device test. Keep the performance cause open until build provenance or controlled timing separates it.
 - **Clarification from the owner:** the companion DS Style Thumbnail Scraper app (the owner's fork) intentionally writes `DST1` on new mirrored thumbnails so the launcher can draw selected pixels transparently. Keep this behavior and tell users not to strip the marker. The loader uses RGB555 zero pixels as transparent only on a valid marked BMP; nonzero pixels remain opaque.

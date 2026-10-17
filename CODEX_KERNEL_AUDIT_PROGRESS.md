@@ -1,5 +1,12 @@
 # Codex Kernel Audit Progress
 
+## 2026-10-17 18:22 UTC — Revision-agnostic work policy
+
+- **Phase/subsystem:** audit strategy and scope guardrail. **Objective:** prevent any fix path that depends on a specific hardware revision when the root cause is not proven across all supported boards.
+- **Directive:** the owner explicitly instructed that all fixes pursued from this point forward must be hardware-revision agnostic.
+- **Implication:** follow-up work remains limited to behaviors and persistence faults for which one fix works correctly across all supported board revisions, without revision-specific branching. Observed original-DE/Rev.B boot and settings differences remain diagnostic evidence only; do not pursue a revision-specific fix.
+- **Next:** continue audit work only where any resulting fix can be applied consistently across supported revisions; defer revision-specific proposals.
+
 ## 2026-10-17 00:33 UTC — F-022 progress callback and interrupt-state review
 
 - **Phase/subsystem:** F-022 NOR liveness and IRQ safety. **Objective:** resolve the older open question about `VBlankIntrWait()` inside chip-erase progress callbacks while `Chip_Erase()` has disabled master interrupts.
