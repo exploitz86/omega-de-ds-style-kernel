@@ -135,6 +135,164 @@ static void CheatSelectionRemember(u32 total)
 	}
 }
 
+/* ---- Persistent per-game cheat selection (/SYSTEM/CHEATSTATE/<hash>.cst) ---- */
+#define CHEATSTATE_DIR "/SYSTEM/CHEATSTATE"
+#define CHEATSTATE_MAGIC 0x31534843 /* "CHS1" */
+#define CHEATSTATE_MAX 64
+
+typedef struct {
+	u32 magic;
+	u32 count;
+	char key[128];
+} CHEATSTATE_HDR;
+
+typedef struct {
+	char section[MAX_KEY_LEN];
+	char name[MAX_KEY_LEN];
+} CHEATSTATE_REC;
+
+extern u16 gl_cheat_remember;
+
+static CHEATSTATE_HDR cs_hdr EWRAM_BSS;
+static CHEATSTATE_REC cs_rec[CHEATSTATE_MAX] EWRAM_BSS;
+static FIL cs_file EWRAM_BSS;
+
+static void CheatStatePath(char *dst, u32 dst_len, const char *key)
+{
+	u32 hash = 2166136261u;
+	while(*key)
+	{
+		hash ^= (u8)*key++;
+		hash *= 16777619u;
+	}
+	snprintf(dst, dst_len, CHEATSTATE_DIR "/%08lx.cst", hash);
+}
+
+static u32 CheatStateReadHeader(const char *key)
+{
+	char path[64];
+	UINT rd = 0;
+
+	CheatStatePath(path, sizeof(path), key);
+	if(f_open(&cs_file, path, FA_READ) != FR_OK)
+		return 0;
+	if(f_read(&cs_file, &cs_hdr, sizeof(cs_hdr), &rd) != FR_OK ||
+		rd != sizeof(cs_hdr) || cs_hdr.magic != CHEATSTATE_MAGIC ||
+		cs_hdr.count == 0 || cs_hdr.count > CHEATSTATE_MAX ||
+		strncmp(cs_hdr.key, key, sizeof(cs_hdr.key)))
+	{
+		f_close(&cs_file);
+		f_unlink(path);
+		return 0;
+	}
+	return cs_hdr.count;
+}
+
+/* Number of remembered cheats for a game, without touching the cheat buffers. */
+u32 CheatStateSavedCount(TCHAR *gamefilename, u32 havecht)
+{
+	char key[128];
+	u32 count;
+
+	CheatSelectionMakeKey(key, sizeof(key), gamefilename, havecht);
+	count = CheatStateReadHeader(key);
+	if(count)
+		f_close(&cs_file);
+	return count;
+}
+
+static void CheatStateSave(u32 total)
+{
+	FM_CHT_LINE *entries = (FM_CHT_LINE*)pCHTbuffer;
+	char path[64];
+	UINT wr = 0;
+	u32 i, section, count = 0;
+
+	CheatStatePath(path, sizeof(path), cheat_active_key);
+	for(i = 0; i < total && count < CHEATSTATE_MAX; i++)
+	{
+		if(entries[i].is_section == 1 || entries[i].select != 1)
+			continue;
+		section = i;
+		while(section > 0 && entries[section].is_section != 1)
+			section--;
+		memset(&cs_rec[count], 0, sizeof(cs_rec[count]));
+		memcpy(cs_rec[count].section, entries[section].LINEname, MAX_KEY_LEN - 1);
+		memcpy(cs_rec[count].name, entries[i].LINEname, MAX_KEY_LEN - 1);
+		count++;
+	}
+
+	if(count == 0)
+	{
+		f_unlink(path);
+		return;
+	}
+
+	f_mkdir("/SYSTEM");
+	f_mkdir(CHEATSTATE_DIR);
+	memset(&cs_hdr, 0, sizeof(cs_hdr));
+	cs_hdr.magic = CHEATSTATE_MAGIC;
+	cs_hdr.count = count;
+	strncpy(cs_hdr.key, cheat_active_key, sizeof(cs_hdr.key) - 1);
+	if(f_open(&cs_file, path, FA_WRITE | FA_CREATE_ALWAYS) != FR_OK)
+		return;
+	f_write(&cs_file, &cs_hdr, sizeof(cs_hdr), &wr);
+	f_write(&cs_file, cs_rec, count * sizeof(CHEATSTATE_REC), &wr);
+	f_close(&cs_file);
+}
+
+/* All-or-nothing: if any remembered cheat is missing from the cheat file, nothing is applied. */
+static u32 CheatStateApply(u32 total)
+{
+	FM_CHT_LINE *entries = (FM_CHT_LINE*)pCHTbuffer;
+	char path[64];
+	UINT rd = 0;
+	u32 count, i, j, ok = 1;
+
+	count = CheatStateReadHeader(cheat_active_key);
+	if(!count)
+		return 0;
+	if(f_read(&cs_file, cs_rec, count * sizeof(CHEATSTATE_REC), &rd) != FR_OK ||
+		rd != count * sizeof(CHEATSTATE_REC))
+		ok = 0;
+	f_close(&cs_file);
+
+	for(i = 0; ok && i < count; i++)
+	{
+		u32 found = 0;
+		for(j = 0; j < total && !found; j++)
+		{
+			if(entries[j].is_section == 1 &&
+				!strncmp(entries[j].LINEname, cs_rec[i].section, MAX_KEY_LEN - 1))
+			{
+				u32 k;
+				for(k = j + 1; k < total && entries[k].is_section != 1; k++)
+				{
+					if(!strncmp(entries[k].LINEname, cs_rec[i].name, MAX_KEY_LEN - 1))
+					{
+						found = k;
+						break;
+					}
+				}
+			}
+		}
+		if(!found)
+			ok = 0;
+		else
+			entries[found].select = 1;
+	}
+
+	if(!ok)
+	{
+		for(i = 0; i < total; i++)
+			entries[i].select = 0;
+		CheatStatePath(path, sizeof(path), cheat_active_key);
+		f_unlink(path);
+		return 0;
+	}
+	return count;
+}
+
 static u32 CheatTextLooksGB2312(const char *str)
 {
 	u32 i;
@@ -922,13 +1080,28 @@ static void Show_KEY_line(u32 line, u32 Select, u32 showoffset, u32 total_entrie
 
 void Show_KEY_val(u32 total_entries, u32 visible_total, u32 Select, u32 showoffset)
 {
-	u32 need_show = visible_total - showoffset;
 	u32 line;
 
-	if(need_show > 10)
-		need_show = 10;
-	for(line=0; line<need_show; line++)
+	/* Always visit all 10 rows so rows left over from a collapsed group are cleared. */
+	(void)visible_total;
+	for(line=0; line<10; line++)
 		Show_KEY_line(line, Select, showoffset, total_entries);
+}
+
+static void ClampCheatViewport(u32 visible_count, u32 *Select, u32 *showoffset)
+{
+	u32 cursor = *showoffset + *Select;
+	u32 max_offset = visible_count > 10 ? visible_count - 10 : 0;
+
+	if (visible_count == 0)
+		cursor = 0;
+	else if (cursor >= visible_count)
+		cursor = visible_count - 1;
+	if (*showoffset > max_offset)
+		*showoffset = max_offset;
+	if (cursor < *showoffset)
+		*showoffset = cursor;
+	*Select = cursor - *showoffset;
 }
 
 static u16 CheatVisibleSelectionMask(u32 total_entries, u32 visible_total,
@@ -2507,19 +2680,16 @@ static void ShowCheatCompileWarning(u32 error_count)
 	} while ((pressed & (KEY_A | KEY_B)) == 0);
 }
 //------------------------------------------------------------------
-void Open_cht_file(TCHAR *gamefilename,u32 havecht)
+static u32 CheatOpenFile(TCHAR *gamefilename,u32 havecht)
 {
 	u32 res;
-	char msg[128];
 	TCHAR chtnamebuf[100];
-
-	char buffer[127]={0};
 
 	if(havecht == 0x0000FFFF)
 	{
 		res=f_chdir("/SYSTEM/CHEAT");
 		if(res != FR_OK){
-			return;
+			return res;
 		}
 		memcpy(chtnamebuf,gamefilename,100);
 		u32 len=strlen(chtnamebuf);
@@ -2534,7 +2704,38 @@ void Open_cht_file(TCHAR *gamefilename,u32 havecht)
 		chtmode = (u8*)&havecht;
 		snprintf(chtnamebuf, sizeof(chtnamebuf),"%d%d%d%d.cht",HexToChar(chtmode[0]),HexToChar(chtmode[1]),HexToChar(chtmode[2]),HexToChar(chtmode[3]));
 	}
-	res = f_open(&gfile,chtnamebuf, FA_READ);
+	return f_open(&gfile,chtnamebuf, FA_READ);
+}
+
+/* Loads the remembered cheats for a game without showing the editor, so
+   "Boot with addon" works straight from the game menu. */
+u32 CheatStateLoadHeadless(TCHAR *gamefilename,u32 havecht)
+{
+	u32 all_count;
+	u32 applied = 0;
+
+	if(CheatOpenFile(gamefilename, havecht) != FR_OK)
+		return 0;
+
+	CheatSelectionMakeKey(cheat_active_key, sizeof(cheat_active_key), gamefilename, havecht);
+	all_count = Check_count(Get_all_Section_val(&gfile));
+	if(all_count && CheatStateApply(all_count))
+	{
+		Analyze_KEYVAL(&gfile, all_count);
+		applied = 1;
+	}
+	f_close(&gfile);
+	return applied;
+}
+//------------------------------------------------------------------
+void Open_cht_file(TCHAR *gamefilename,u32 havecht)
+{
+	u32 res;
+	char msg[128];
+
+	char buffer[127]={0};
+
+	res = CheatOpenFile(gamefilename, havecht);
 
 	if(res == FR_OK)//have a cht file
 	{
@@ -2564,6 +2765,8 @@ void Open_cht_file(TCHAR *gamefilename,u32 havecht)
 		if(all_count)
 		{
 			all_count = Check_count(all_count);//cut from "GameInfo"
+			if(gl_cheat_remember && strcmp(cheat_selection_key, cheat_active_key))
+				gl_cheat_selected_count = CheatStateApply(all_count);
 			visible_count = GetVisibleCheatMenuCount(all_count);
 			if (visible_count == 0)
 			{
@@ -2672,6 +2875,7 @@ void Open_cht_file(TCHAR *gamefilename,u32 havecht)
 						if (SetCheatGroupExpanded(entry_index, all_count, 0))
 						{
 							visible_count = GetVisibleCheatMenuCount(all_count);
+							ClampCheatViewport(visible_count, &Select, &showoffset);
 							UIAudio_PlayAcceptExport();
 							re_show = 2;
 						}
@@ -2698,6 +2902,7 @@ void Open_cht_file(TCHAR *gamefilename,u32 havecht)
 						if (SetCheatGroupExpanded(entry_index, all_count, 1))
 						{
 							visible_count = GetVisibleCheatMenuCount(all_count);
+							ClampCheatViewport(visible_count, &Select, &showoffset);
 							UIAudio_PlayAcceptExport();
 							re_show = 2;
 						}
@@ -2725,6 +2930,7 @@ void Open_cht_file(TCHAR *gamefilename,u32 havecht)
 						SetCheatGroupExpanded(entry_index, all_count,
 							((FM_CHT_LINE*)pCHTbuffer)[entry_index].select == CHT_GROUP_COLLAPSED);
 						visible_count = GetVisibleCheatMenuCount(all_count);
+						ClampCheatViewport(visible_count, &Select, &showoffset);
 						re_show = 2;
 					}
 					else if (entry_index < all_count)
@@ -2748,6 +2954,8 @@ void Open_cht_file(TCHAR *gamefilename,u32 havecht)
 						if (compile_errors)
 							ShowCheatCompileWarning(compile_errors);
 					}
+					if(gl_cheat_remember)
+						CheatStateSave(all_count);
 					break;
 				}
 			}

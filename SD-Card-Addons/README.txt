@@ -1,4 +1,4 @@
-DS Style 7.4c - SD Card Add-ons
+DS Style Enhanced - SD Card Add-ons
 ================================
 
 Copy the SYSTEM folder in this directory to the root of the SD card and merge

@@ -19,11 +19,11 @@ function Reject([string]$Relative, [string]$Needle, [string]$Label) {
     }
 }
 
-# DS Style 7.4c structural source checks.
+# DS Style Enhanced structural source checks.
 # This validates the drop-in optimized source only.
 # Grit image regeneration/verification is performed by Build-DS-Style-Enhanced.cmd
 # before this structural source validation. This script does not rerun Grit or the developer test suite.
-Need 'source\launcher_version.h' '#define LAUNCHER_VERSION_TEXT "7.4c"' 'DS Style 7.4c version marker'
+Need 'source\launcher_version.h' '#define LAUNCHER_VERSION_TEXT "' 'DS Style version marker'
 Need 'source\ezkernelnew.c' 'Launcher_RedrawRomMenuSaveTypeValue' 'v7.3 save-type redraw'
 Need 'source\ezkernelnew.c' 'Launcher_RestoreHorizontalOuterBorder' 'v7.3 carousel border fix'
 Need 'source\ezkernelnew.c' 'old_view == LAUNCHER_VIEW_LIST && new_view == LAUNCHER_VIEW_LIST_ART' 'v7.3 List + Art transition'
@@ -264,4 +264,4 @@ Need 'source\ezkernelnew.c' 'page += 0x08' '32 KiB RTS import windows'
 Need 'tools\inspect_rts3.py' 'ABI = 0x138A0001' 'RTS3 file inspector'
 Reject 'source\gba_rts_patch.s' 'bl rts2_' 'no live RTS2 call path'
 Reject 'source\gba_rts_only.s' 'bl rts2_' 'no live RTS2 call path'
-Write-Host 'PASS: DS Style 7.4c structural source validation'
+Write-Host 'PASS: DS Style Enhanced structural source validation'

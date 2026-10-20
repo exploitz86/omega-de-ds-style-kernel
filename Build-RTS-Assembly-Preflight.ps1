@@ -24,6 +24,7 @@ try {
             '-MMD', '-MP', '-MF', $Dependency,
             '-x', 'assembler-with-cpp', '-g', '-mthumb', '-mthumb-interwork',
             '-I', (Join-Path $SourceRoot 'build/source'), '-I', $SourceDir,
+            '-Xassembler', '-I', '-Xassembler', $SourceDir,
             '-c', $Source.FullName, '-o', $Object
         )
         Write-Host ('Assembly preflight: ' + $Source.Name)

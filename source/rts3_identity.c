@@ -47,9 +47,18 @@ static int finalize_runtime(uint8_t *runtime, size_t runtime_size,
     store32(h+0x24,installed_address);
     store32(h+0x30,UINT32_C(0x000F0001));
     store32(h+0x34,RTS3_KERNEL_ABI);
-    store32(h+0x38,(uint32_t)runtime_size);
+    store32(h+0x38,0u);
     store32(h+0x3C,0u);
-    crc=Rts3Crc32(runtime,runtime_size);
+    /* Save-state compatibility must not depend on cheat records, hotkeys or
+       which engine variant was injected, so the runtime field is a constant
+       derived from the format magic and kernel ABI. */
+    {
+        uint8_t id[12];
+        size_t i;
+        for (i=0;i<8u;i++) id[i]=h[i];
+        put32(id+8,RTS3_KERNEL_ABI);
+        crc=Rts3Crc32(id,sizeof(id));
+    }
     store32(h+0x20,crc);
     return 1;
 }

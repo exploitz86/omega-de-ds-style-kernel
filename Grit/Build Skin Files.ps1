@@ -253,7 +253,7 @@ function Read-GritTopbarPixels($path) {
     for ($i = 0; $i -lt $pixels.Length; $i++) {
         $lo = [Convert]::ToByte($matches[$i * 2].Groups[1].Value, 16)
         $hi = [Convert]::ToByte($matches[$i * 2 + 1].Groups[1].Value, 16)
-        $pixels[$i] = [UInt16]($lo -bor ($hi -shl 8))
+        $pixels[$i] = [UInt16]([int]$lo -bor ([int]$hi -shl 8))
     }
     return ,$pixels
 }
@@ -309,7 +309,7 @@ function Write-CompactTopbarHeader($themes) {
         $packed = New-Object 'System.Byte[]' ([int](($indices.Length + 1) / 2))
         for ($i = 0; $i -lt $indices.Length; $i += 2) {
             $high = if (($i + 1) -lt $indices.Length) { $indices[$i + 1] } else { 0 }
-            $packed[$i / 2] = [byte]($indices[$i] -bor ($high -shl 4))
+            $packed[$i / 2] = [byte]([int]$indices[$i] -bor ([int]$high -shl 4))
         }
         $key = [Convert]::ToBase64String($packed)
         if ($patternKeys.ContainsKey($key)) {

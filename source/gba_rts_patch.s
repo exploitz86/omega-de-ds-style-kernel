@@ -13,6 +13,7 @@
 	.global  RTS_Reset_key
 	@;.global  RTS_Wakeup_key
 	.global	 RTS_switch
+	.global	 RTS_menu_min
 	.global  RTS_state_identity
 	.global RTS_rts2_header
 	.global	 Cheat_count
@@ -152,7 +153,7 @@ check_sleep:
 	RTS_ADRL 		r2,CheatONOFF
 	ldr 		r2,[r2]
 	ldr 		r2,[r2] @
-	cmp 		r2,#1
+	cmp 		r2,#0
 	bne 		nocheat
 	stmfd   SP!, {r4-r11,lr}
 	mov			r1,sp			@ saved-register frame base for malformed-table recovery
@@ -694,14 +695,16 @@ ingamemenu_now:
     bl backup_LCD
     bl clean_screen
 
-@; start
-	mov		r11,#0	
+	@; start
+	RTS_ADRL  r7,RTS_menu_min
+	ldr		r11,[r7]	@;first selectable entry (1 hides RESET)
 begin_show:
-	mov		r12,#0
-	@;cmp		r11,#0
-	@;movlt	r11,#0
+	RTS_ADRL  r7,RTS_menu_min
+	ldr		r12,[r7]
 	
 	RTS_ADRL  r8,ingameMENU
+	cmp		r12,#0
+	addne	r8,r8,#6	@;skip "RESET",0
 	mov		r9,#40		 @;Y
 	mov		r10,#86    @;X	
 	
@@ -710,21 +713,25 @@ showAll:
 	ldr		r7,[r7]
 	cmp 	r7,#0x0
 	beq   no_cheat  
-	cmp		r11,#0
+	RTS_ADRL  r7,RTS_menu_min
+	ldr		r7,[r7]
+	cmp		r11,r7
 	movlt	r11,#4
 	cmp		r11,#5
 	@;movge	r11,#4
-	moveq	r11,#0
+	moveq	r11,r7
 	ldrb	r0,[r8],#+1
 	cmp		r0,#0xA5
 	beq		waitSeletc	
 	b  		showMENU
 no_cheat:
-	cmp		r11,#0
+	RTS_ADRL  r7,RTS_menu_min
+	ldr		r7,[r7]
+	cmp		r11,r7
 	movlt	r11,#2
 	cmp		r11,#3
 	@;movge	r11,#2
-	moveq	r11,#0
+	moveq	r11,r7
 	ldrb	r0,[r8],#+1
 	cmp		r0,#0x43 @;'C'
 	beq		waitSeletc
@@ -845,7 +852,7 @@ pressB:
 	
 	@;===================================================		
 call_CheatON:
-	mov r3,#1
+	mov r3,#0
 set_Cheat:
 	RTS_ADRL r2,CheatONOFF
 	ldr	r2,[r2]
@@ -853,7 +860,7 @@ set_Cheat:
 	b b_pressed_quit
 	@;===================================================		
 call_CheatOFF:
-	mov r3,#0
+	mov r3,#1
 	b   set_Cheat
 
 	
@@ -970,6 +977,8 @@ s_badRTS:
 	.align	
 RTS_switch: 
 	.word 0x00000000
+RTS_menu_min:
+	.word 0x00000000	@ 1 = hide RESET in the in-game menu
 Cheat_count:
 	.word 0x00000000	
 	.align
