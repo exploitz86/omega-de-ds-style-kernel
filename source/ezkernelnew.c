@@ -244,6 +244,7 @@ static u32 Launcher_ResolveFullPath(const TCHAR *full_path, u32 stored_path_capa
 	TCHAR *out_path, u32 out_path_size, TCHAR *out_name, u32 out_name_size,
 	TCHAR *out_alias, u32 out_alias_size, u32 *out_size);
 static u32 Launcher_IsFavouriteSDIndex(u32 absolute_index);
+static void Launcher_InvalidateVirtualEntryMemo(void);
 static u32 Launcher_IsFavouriteFileIndex(u32 file_index);
 static void Launcher_DrawFavouriteHeart(int x, int y, u16 colour);
 static char (*Launcher_FavouritesBuffer(void))[LAUNCHER_FAVOURITE_PATH_LEN];
@@ -2035,6 +2036,7 @@ u32 Copy_file(const char* src, const char* dst)
 			if ((res == FR_OK) && (total_read == filesize) && (total_written == filesize))
 			{
 				f_close(&gfile);
+				Launcher_InvalidateVirtualEntryMemo();
 				return 1;
 			}
 
@@ -5107,45 +5109,106 @@ static void Launcher_DrawFavouriteHeart(int x, int y, u16 colour)
 	Launcher_ClearClip(x + 3, y + 5, 1, 1, colour);
 }
 
+#define LAUNCHER_VIRTUAL_MEMO_COUNT (LAUNCHER_MAX_FAVOURITES + LAUNCHER_MAX_RECENTS)
+typedef struct
+{
+	u8 valid;
+	u8 gamecode_valid;
+	u32 size;
+	u8 gamecode[4];
+	TCHAR name[256];
+	TCHAR alias[13];
+	char key[LAUNCHER_RECENT_PATH_LEN];
+	char canonical[LAUNCHER_RECENT_PATH_LEN];
+} LauncherVirtualEntryMemo;
+static LauncherVirtualEntryMemo launcher_virtual_memo[LAUNCHER_VIRTUAL_MEMO_COUNT]EWRAM_BSS;
+static u32 launcher_virtual_memo_next = 0;
+
+static void Launcher_InvalidateVirtualEntryMemo(void)
+{
+	u32 i;
+	for(i = 0; i < LAUNCHER_VIRTUAL_MEMO_COUNT; i++)
+		launcher_virtual_memo[i].valid = 0;
+}
+
+/* Resolving a stored path to its long name needs directory scans and a ROM
+   header read. Results are memoised by stored path so that opening the lists
+   and switching between them does not repeat the SD card work. */
+static u32 Launcher_ResolveVirtualEntry(const char *stored, u32 stored_capacity,
+	LauncherVirtualEntryMemo *out)
+{
+	TCHAR path_part[MAX_path_len];
+	TCHAR name[256];
+	TCHAR alias[13];
+	u32 size = 0;
+	u32 i;
+	u32 name_len;
+	u32 key_fits;
+
+	if(!stored || !stored[0])
+		return 0;
+	key_fits = strlen(stored) < sizeof(out->key);
+	if(key_fits)
+	{
+		for(i = 0; i < LAUNCHER_VIRTUAL_MEMO_COUNT; i++)
+		{
+			if(launcher_virtual_memo[i].valid && strcmp(launcher_virtual_memo[i].key, stored) == 0)
+			{
+				*out = launcher_virtual_memo[i];
+				return 1;
+			}
+		}
+	}
+
+	if(!Launcher_ResolveFullPath(stored, stored_capacity, path_part, sizeof(path_part),
+		name, sizeof(name), alias, sizeof(alias), &size))
+		return 0;
+	memset(out, 0, sizeof(*out));
+	if(!Launcher_BuildFullPath(path_part, alias, out->canonical, sizeof(out->canonical)))
+		return 0;
+	Launcher_CopyString(out->name, sizeof(out->name), name);
+	Launcher_CopyString(out->alias, sizeof(out->alias), alias);
+	if(Launcher_GetVirtualFileInfo(out->canonical, name, &size, out->gamecode))
+	{
+		name_len = strlen(name);
+		out->gamecode_valid = (name_len >= 3) &&
+			(!strcasecmp(&name[name_len - 3], "gba") || !strcasecmp(&name[name_len - 3], "agb"));
+	}
+	else
+		size = 0;
+	out->size = size;
+	if(key_fits)
+	{
+		Launcher_CopyString(out->key, sizeof(out->key), stored);
+		out->valid = 1;
+		launcher_virtual_memo[launcher_virtual_memo_next] = *out;
+		launcher_virtual_memo_next = (launcher_virtual_memo_next + 1) % LAUNCHER_VIRTUAL_MEMO_COUNT;
+	}
+	return 1;
+}
+
+static void Launcher_StoreVirtualEntry(u32 count, const LauncherVirtualEntryMemo *entry)
+{
+	Launcher_CopyString(p_recently_play[count], sizeof(p_recently_play[count]), entry->canonical);
+	memcpy(launcher_virtual_gamecode[count], entry->gamecode, 4);
+	launcher_virtual_gamecode_valid[count] = entry->gamecode_valid;
+	Launcher_StoreFileRecord(count, entry->name, entry->alias, entry->size);
+}
+
 static u32 Build_favourites_virtual_list(void)
 {
 	u32 count = 0;
 	u32 i;
-	TCHAR path_part[MAX_path_len];
-	TCHAR name[256];
-	TCHAR alias[13];
-	TCHAR canonical_path[512];
-	TCHAR resolved_name[256];
-	TCHAR resolved_alias[13];
-	u32 size = 0;
+	static LauncherVirtualEntryMemo entry EWRAM_BSS;
 
 	Launcher_LoadFavourites();
 	memset(launcher_virtual_gamecode, 0, sizeof(launcher_virtual_gamecode));
 	memset(launcher_virtual_gamecode_valid, 0, sizeof(launcher_virtual_gamecode_valid));
 	for(i = 0; (i < launcher_favourite_count) && (count < LAUNCHER_MAX_RECENTS); i++)
 	{
-		if(!Launcher_ResolveFullPath(Launcher_FavouritesBuffer()[i], LAUNCHER_FAVOURITE_PATH_LEN,
-			path_part, sizeof(path_part), resolved_name, sizeof(resolved_name),
-			resolved_alias, sizeof(resolved_alias), &size))
+		if(!Launcher_ResolveVirtualEntry(Launcher_FavouritesBuffer()[i], LAUNCHER_FAVOURITE_PATH_LEN, &entry))
 			continue;
-		if(!Launcher_BuildFullPath(path_part, resolved_alias, canonical_path, sizeof(canonical_path)))
-			continue;
-		strncpy(p_recently_play[count], canonical_path, sizeof(p_recently_play[count]) - 1);
-		p_recently_play[count][sizeof(p_recently_play[count]) - 1] = '\0';
-		strncpy(name, resolved_name, sizeof(name) - 1);
-		name[sizeof(name) - 1] = '\0';
-		strncpy(alias, resolved_alias, sizeof(alias) - 1);
-		alias[sizeof(alias) - 1] = '\0';
-		if(Launcher_GetVirtualFileInfo(canonical_path, name, &size, launcher_virtual_gamecode[count]))
-		{
-			launcher_virtual_gamecode_valid[count] =
-				(strlen(name) >= 3) &&
-				(!strcasecmp(&(name[strlen(name) - 3]), "gba") ||
-				!strcasecmp(&(name[strlen(name) - 3]), "agb"));
-		}
-		else
-			size = 0;
-		Launcher_StoreFileRecord(count, name, alias, size);
+		Launcher_StoreVirtualEntry(count, &entry);
 		count++;
 	}
 	Launcher_CommitFileRecords(count);
@@ -5167,13 +5230,8 @@ static u32 Build_recent_virtual_list(void)
 	u32 recent_count = get_count();
 	u32 count = 0;
 	u32 i;
-	TCHAR full_path[MAX_path_len];
-	TCHAR name[256];
-	TCHAR alias[13];
-	TCHAR resolved_name[256];
-	TCHAR resolved_alias[13];
-	char canonical_path[512];
-	u32 size = 0;
+	static LauncherVirtualEntryMemo entry EWRAM_BSS;
+	static char stored[LAUNCHER_RECENT_PATH_LEN] EWRAM_BSS;
 
 	if(recent_count > MAX_files)
 		recent_count = MAX_files;
@@ -5182,33 +5240,36 @@ static u32 Build_recent_virtual_list(void)
 	memset(launcher_virtual_gamecode_valid, 0, sizeof(launcher_virtual_gamecode_valid));
 	for(i = 0; i < recent_count; i++)
 	{
-		if(Recent_GetLoadedPathAt(i, recent_count, full_path, sizeof(full_path), name, sizeof(name)))
-		{
-			if(!Launcher_ResolveDirectoryEntry(full_path, name, resolved_name, sizeof(resolved_name),
-				resolved_alias, sizeof(resolved_alias), &size, 0) ||
-				!Launcher_BuildFullPath(full_path, resolved_alias, canonical_path, sizeof(canonical_path)))
-				continue;
-			strncpy(name, resolved_name, sizeof(name) - 1);
-			name[sizeof(name) - 1] = '\0';
-			strncpy(alias, resolved_alias, sizeof(alias) - 1);
-			alias[sizeof(alias) - 1] = '\0';
-			strncpy(p_recently_play[count], canonical_path, sizeof(p_recently_play[count]) - 1);
-			p_recently_play[count][sizeof(p_recently_play[count]) - 1] = '\0';
-			if(Launcher_GetVirtualFileInfo(canonical_path, name, &size, launcher_virtual_gamecode[count]))
-			{
-				launcher_virtual_gamecode_valid[count] =
-					(strlen(name) >= 3) &&
-					(!strcasecmp(&(name[strlen(name) - 3]), "gba") ||
-					!strcasecmp(&(name[strlen(name) - 3]), "agb"));
-			}
-			else
-				size = 0;
-			Launcher_StoreFileRecord(count, name, alias, size);
-			count++;
-		}
+		/* Output rows overwrite p_recently_play, so resolve from a copy. */
+		Launcher_CopyString(stored, sizeof(stored), p_recently_play[i]);
+		if(!Launcher_ResolveVirtualEntry(stored, sizeof(p_recently_play[i]), &entry))
+			continue;
+		Launcher_StoreVirtualEntry(count, &entry);
+		count++;
 	}
 	Launcher_CommitFileRecords(count);
 	return count;
+}
+
+/* Warm the memo for both lists once at boot so the first open of Recent or
+   Favourites does not scan the SD card. */
+static void Launcher_PrefillVirtualEntryMemo(void)
+{
+	static LauncherVirtualEntryMemo entry EWRAM_BSS;
+	static char stored[LAUNCHER_RECENT_PATH_LEN] EWRAM_BSS;
+	u32 recent_count = get_count();
+	u32 i;
+
+	if(recent_count > LAUNCHER_MAX_RECENTS)
+		recent_count = LAUNCHER_MAX_RECENTS;
+	for(i = 0; i < recent_count; i++)
+	{
+		Launcher_CopyString(stored, sizeof(stored), p_recently_play[i]);
+		Launcher_ResolveVirtualEntry(stored, sizeof(p_recently_play[i]), &entry);
+	}
+	Launcher_LoadFavourites();
+	for(i = 0; i < launcher_favourite_count; i++)
+		Launcher_ResolveVirtualEntry(Launcher_FavouritesBuffer()[i], LAUNCHER_FAVOURITE_PATH_LEN, &entry);
 }
 
 //---------------------------------------------------------------------------------
@@ -9533,6 +9594,7 @@ u32 SD_list_L_START(u32 show_offset,u32 file_select,u32 folder_total)
 			UIAudio_PlayAccept();
 			/* The FatFs alias uniquely identifies the indexed directory entry. */
 			/*res = */f_unlink((TCHAR*)identity);
+			Launcher_InvalidateVirtualEntryMemo();
 			launcher_force_full_redraw = 1;
 			return 1;
 		}
@@ -14890,6 +14952,7 @@ int main(void) {
 		memset(current_filename, 0x00, sizeof(current_filename));
 	}
 	Launcher_SaveSDState();
+	Launcher_PrefillVirtualEntryMemo();
 
 	Read_NOR_info();
 	gl_norOffset = 0x000000;
