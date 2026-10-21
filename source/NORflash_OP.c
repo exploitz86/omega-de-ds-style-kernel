@@ -477,15 +477,15 @@ u32 Loadfile2NOR(TCHAR *filename, u32 NORaddress,u16 have_patch,u8 SAVEMODE)
 			read_size = NOR_BLOCK_SIZE;
 		if(f_lseek(&gfile, blocknum) != FR_OK)
 			goto close_file;
-		memset(pReadCache, 0xFF, NOR_BLOCK_SIZE);
 		if(f_read(&gfile, pReadCache, (UINT)read_size, &ret) != FR_OK || ret != read_size)
 			goto close_file;
+		memset(pReadCache + ret, 0xFF, 0x20000 - ret);
 
 		if(have_patch){
 			if((gl_reset_on==1) || (gl_rts_on==1) || (gl_sleep_on==1) || (gl_cheat_on==1))
 			{
 				PatchInternal((u32*)pReadCache,NOR_BLOCK_SIZE,blocknum);
-				GBApatch_NOR((u32*)pReadCache,NOR_BLOCK_SIZE,blocknum);//some nes need check
+				GBApatch_NOR((u32*)pReadCache,filesize,blocknum);//some nes need check
 			}
 		}
 		else{
@@ -518,7 +518,8 @@ u32 Loadfile2NOR(TCHAR *filename, u32 NORaddress,u16 have_patch,u8 SAVEMODE)
 	{
 		if(!Block_Erase(blocknum+NORaddress))
 			return 1;
-		GBApatch_NOR((u32*)pReadCache,NOR_BLOCK_SIZE,blocknum);
+		memset(pReadCache, 0xFF, NOR_BLOCK_SIZE);
+		GBApatch_NOR((u32*)pReadCache,filesize,blocknum);
 		if(!WriteFlash_with32word(blocknum+NORaddress,pReadCache,NOR_BLOCK_SIZE))
 			return 1;
 	}

@@ -964,11 +964,11 @@ static u32 CreateRtsFile(const TCHAR *filename)
 
 	TCHAR rtsnamebuf[100];
 	u32 len = 0;
-	while(len < sizeof(rtsnamebuf) && gamefilename[len])
+	while(len < sizeof(rtsnamebuf) && filename[len])
 		len++;
 	if(len >= sizeof(rtsnamebuf) || len < 3)
 		return 0;
-	memcpy(rtsnamebuf,gamefilename,len);
+	memcpy(rtsnamebuf,filename,len);
 	rtsnamebuf[len] = '\0';
 	rtsnamebuf[len-3] = 'r';
 	rtsnamebuf[len-2] = 't';
@@ -1536,4 +1536,3 @@ void AutoPatch_ApplySearchWrites(u32 *Data)
 		}
 	}
 }
-
