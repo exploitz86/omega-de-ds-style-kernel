@@ -1,0 +1,13 @@
+C0 - Boots normally and shows C0 and a glyph I don't recognize kinda like the copyright symbol with the tail of a q
+S1 - Boots normally and shows S1 and a glyph I don't recognize kinda like the copyright symbol with the tail of a q
+R1 - Boots normally and shows R1 and a glyph I don't recognize kinda like 8 with 2 extra pixels in the lower right corner
+T1 - Fails to boot normally in the same manner as the failed F-011 builds and shows T1 and a glyph I don't recognize kinda like the copyright symbol with the tail of a q
+
+R2 - Boots normally and runs as expected through diffrent menus and game loads, shows R28
+T2 - Fails to boot normally in the same manner as the failed F-011 builds, shows T26, T27 briefly pauses then shows T29 and then freezes compleatly.
+
+T3 - Fails to boot normally in the same manner as the failed F-011 builds, early boot shows T30, then T31 briefly pauses then shows T37 and then freezes compleatly.
+
+T4 - Boots normally to the start screen but doesn't load the diffrent game console folder art from the IMGS2\CUSTOM and instead shows 16x14 system folder icon, it does however load the mirrored artwork for games, early boot shows T40, then T31 briefly pauses then shows T39.
+
+T5 - Fails to boot normally in the same manner as the failed F-011 builds, early boot shows U50, then U51 briefly, then shows U59 and freezes compleatly.

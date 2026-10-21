@@ -20,12 +20,18 @@ typedef struct FM_NOR_FILE_SECT{////save to nor
 
 typedef struct FM_Folder_SECT{
 	char filename[100];
+	char altname[13];
+	u8 flags;
 } FM_Folder_FS;
 
 typedef struct FM_FILE_SECT{
 	char filename[100];
 	u32 filesize;
+	char altname[13];
+	u8 flags;
 } FM_FILE_FS;
+
+#define FM_ENTRY_ALIAS_DISPLAY 0x01
 
 
 typedef enum {

@@ -19,7 +19,42 @@ The launcher displays **DS Style 7.4 Enhanced** on screen. GBA savestates use th
 
 ## Build
 
+Read the complete [DS Style User Guide](https://frankiet19.github.io/omega-de-ds-style-kernel/) for installation, everyday use, artwork, customisation and troubleshooting.
+
+## Web
+
+- [DS Style homepage](https://frankiet19.github.io/omega-de-ds-style-kernel/project/)
+- [DS Style Manager](https://frankiet19.github.io/omega-de-ds-style-kernel/manager/) - guided installation, starting preferences, artwork and style tools
+
+## Features
+
+- DS-style launcher interface
+- Multiple colour themes and light/dark presentation support
+- Customisable launcher assets through DS Style Customiser
+- List, List + Art, horizontal carousel, and vertical carousel file views
+- Title and box-art thumbnail modes
+- Favourite and recent game support
+- Multi-language launcher text, including Chinese and Thai
+- Bundled text and Markdown viewer with light and dark presentation modes
+- Optional folder artwork for every supported emulated system
+- UI sounds
+- Runtime settings stored in readable `SYSTEM/SETTINGS.TXT`
+
+## Transparent mirrored thumbnails
+
+The forked DS Style Thumbnail Scraper can create mirrored thumbnails with selective transparency. Keep the `DST1` marker it writes into BMP header bytes 6–9; the launcher uses that marker to make zero-valued RGB555 pixels transparent while drawing the other pixels normally. This lets the artwork blend with the launcher background. Without the marker, the thumbnail is drawn as an ordinary opaque image.
+
+Marked thumbnails use the launcher's standard 16-bit, uncompressed, top-down BMP layout: 120 × 80 pixels for title artwork or 80 × 80 for box artwork. The marker does not provide a full alpha channel; pure black (RGB555 value `0x0000`) is transparent in a marked image, so use a nonzero near-black value where black must remain visible. The companion scraper creates the marker and pixel data together; do not remove or edit the marker when copying its mirrored thumbnails.
+
+## Building
+
 On Windows with the existing devkitARM toolchain installed, run:
+
+```bat
+build.bat
+```
+
+The build script outputs:
 
 ```text
 Build-DS-Style-Enhanced.cmd
@@ -28,6 +63,10 @@ Build-DS-Style-Enhanced.cmd
 The build helper first verifies the editable PNG/BMP graphics by regenerating all 99 compiled image assets with the bundled Grit tool and comparing their image-array data with the known-good headers. If every asset matches, it regenerates the image headers, performs source validation and the native RTS assembly preflight, then builds the kernel. A successful native build produces `ezkernelnew.bin`.
 
 The image verification is intentionally strict: a changed picture that no longer reproduces the current compiled asset stops the build before any header is replaced. `Grit\Build Skin Files.bat` runs the same complete graphics pipeline by itself.
+
+For GitHub Codespaces, rebuild the container to install the configured devkitPro environment, then run `make` from the repository root. This builds the `.gba` target; the Windows `build.bat` workflow performs the additional copy to `ezkernelnew.bin`.
+
+## Skin Assets
 
 Build support files:
 

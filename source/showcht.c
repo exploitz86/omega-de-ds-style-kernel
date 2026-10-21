@@ -519,6 +519,7 @@ void Get_KEY_val(FIL* file,char*KEY_section,char*KEY_secval,char getbuff[])
 				in_section = 0;
 				
 				memset(section,0,MAX_KEY_LEN);
+				section_len = 0;
 				continue;
 			}
 
@@ -2545,11 +2546,14 @@ u32 Check_cheat_file(TCHAR *gamefilename)
 {
 	u32 res;
 	UINT ret;
-	TCHAR chtnamebuf[100];
+	TCHAR chtnamebuf[200];
 	u32 filesize;
 	u32 GAMEID=0;
 	u32 i;
+	u32 len;
 	cheat_use_chinese_folder = (gl_select_lang == 0xE2E2);
+	if(!gamefilename)
+		return 0;
 
 	res = f_open(&gfile, gamefilename, FA_READ);
 	if(res == FR_OK)
@@ -2560,8 +2564,11 @@ u32 Check_cheat_file(TCHAR *gamefilename)
 		if(GAMEID==0) return 0;
 	}
 
-	memcpy(chtnamebuf,gamefilename,100);
-	u32 len=strlen(chtnamebuf);
+	strncpy(chtnamebuf, gamefilename, sizeof(chtnamebuf) - 1);
+	chtnamebuf[sizeof(chtnamebuf) - 1] = '\0';
+	len = strlen(chtnamebuf);
+	if(len < 3)
+		return 0;
 	chtnamebuf[len-3] = 'c';
 	chtnamebuf[len-2] = 'h';
 	chtnamebuf[len-1] = 't';
@@ -2587,9 +2594,16 @@ u32 Check_cheat_file(TCHAR *gamefilename)
 			filesize = f_size(&gfile);
 			if(filesize > 0x10000) filesize=0x10000;
 			f_lseek(&gfile, 0x0);
-			f_read(&gfile, tempbuff, filesize, &ret);//pReadCache max 0x20000 Byte
+			res = f_read(&gfile, tempbuff, filesize, &ret);//pReadCache max 0x20000 Byte
+			if(res != FR_OK)
+			{
+				f_close(&gfile);
+				return 0;
+			}
 
-			for(i=0;i<filesize/4;i+=2)
+			/* Each mapping is a pair of 32-bit values. Ignore an incomplete
+			   trailing record, including when the read itself was short. */
+			for(i=0;i+1<ret/4;i+=2)
 			{
 
 				if(tempbuff[i]== GAMEID)
@@ -2620,6 +2634,7 @@ u32 Check_cheat_file(TCHAR *gamefilename)
 					}
 				}
 			}
+			f_close(&gfile);
 		}
 		return 0;
 	}

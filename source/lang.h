@@ -11,7 +11,7 @@ extern char* gl_theme_credit;
 extern char* gl_theme_credit2;
 
 extern char* gl_menu_btn;
-extern char* gl_lastest_game;
+extern char* gl_nor_delete_info;
 
 extern char* gl_writing;
 extern char* gl_time;

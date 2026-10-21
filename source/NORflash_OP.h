@@ -3,10 +3,10 @@
 #include "ff.h"
 //---------------------------------------------------------------
 void Chip_Reset();
-void Block_Erase(u32 blockAdd);
-void Chip_Erase();
-void FormatNor();
-void WriteFlash(u32 address,u8 *buffer,u32 size);
-void IWRAM_CODE WriteFlash_with32word(u32 address,u8 *buffer,u32 size);
+u8 Block_Erase(u32 blockAdd);
+u8 Chip_Erase();
+u8 FormatNor();
+u8 WriteFlash(u32 address,u8 *buffer,u32 size);
+u8 WriteFlash_with32word(u32 address,u8 *buffer,u32 size);
 u32 Loadfile2NOR(TCHAR *filename, u32 NORaddress,u16 have_patch,u8 SAVEMODE);
 u32 GetFileListFromNor(void);

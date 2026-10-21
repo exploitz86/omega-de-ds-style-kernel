@@ -19,6 +19,7 @@ extern u16 gl_engine_sel;
 extern u16 gl_show_Thumbnail;
 extern u16 gl_ingame_RTC_open_status;
 extern void UIAudio_HandleKeys(u16 keysdown, u16 keysrepeat);
+extern void Show_error_num(u8 error_num);
 
 extern void CheckSwitch(void);
 extern void CheckLanguage(void);
@@ -1097,5 +1098,6 @@ void save_setw_info(void)
 		SET_info_buffer[address] = Read_SET_info(address);
 	}
 	//save to nor
-	Save_SET_info(SET_info_buffer,0x200);
+	if(!Save_SET_info(SET_info_buffer,0x200))
+		Show_error_num(3);
 }

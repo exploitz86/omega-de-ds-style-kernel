@@ -132,20 +132,36 @@ void Write(u32 romaddress, const u8* buffer, u32 size)
 	}
 	else
 	{
-		u32 Address;
-		vu16 page=0;
-		Address=romaddress;
-		while(Address>=0x800000)
+		u32 address = romaddress;
+		u32 source_word = 0;
+		u32 words_remaining = size / 2;
+		if(address & 1)
 		{
-			Address-=0x800000;
-			page+=0x1000;
+			/* PSRAM patch writes use halfwords and require an even address. */
+			SetPSRampage(0);
+			return;
 		}
-		SetPSRampage(page);
-		
-		for(x=0;x<size/2;x++)
-			((vu16*)(PSRAMBase_S98 + Address))[x] = ((vu16*)buffer)[x];//todo ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½psram page
-						
-		//DEBUG_printf("address{%x}:%x %x %x %x", romaddress,page,Address,size ,((vu32*)buffer)[0]);
+
+		/* PSRAM exposes one 8 MiB page at a time. Split patch copies that
+		   cross a page boundary and select the matching page for each chunk. */
+		while(words_remaining > 0)
+		{
+			u32 page_offset = address % 0x800000;
+			u32 words_to_boundary = (0x800000 - page_offset) / 2;
+			u32 words_this_page = words_remaining;
+			u16 page = (u16)((address / 0x800000) * 0x1000);
+			if(words_this_page > words_to_boundary)
+				words_this_page = words_to_boundary;
+
+			SetPSRampage(page);
+			for(x = 0; x < words_this_page; x++)
+				((vu16*)(PSRAMBase_S98 + page_offset))[x] = ((const u16*)buffer)[source_word + x];
+
+			address += words_this_page * 2;
+			source_word += words_this_page;
+			words_remaining -= words_this_page;
+		}
+
 		SetPSRampage(0);
 	}
 }
@@ -253,6 +269,8 @@ void SetTrimSize(u8* buffer,u32 romsize,u32 iSize,u32 mode,BYTE saveMODE)
     else
         PATCH_LENGTH = (u32)((u8*)Sleep_ReplaceIRQ_end - (u8*)Sleep_ReplaceIRQ_start);
     PATCH_LENGTH = (PATCH_LENGTH + 31u) & ~15u; /* placement/alignment margin */
+	if(buffer == NULL || romsize == 0 || iSize == 0)
+		return;
 
   if(0)
   {
@@ -260,9 +278,11 @@ void SetTrimSize(u8* buffer,u32 romsize,u32 iSize,u32 mode,BYTE saveMODE)
   }
   else
   {
-	  byte=buffer[(romsize-1)%iSize-1];
-	  bottom=(romsize-1)%iSize-1;
-	  if(bottom-16 > PATCH_LENGTH){
+	  bottom=(romsize-1)%iSize;
+	  if(bottom > 0)
+		  bottom--;
+	  byte=buffer[bottom];
+	  if(bottom > PATCH_LENGTH+16){
 			top=bottom-PATCH_LENGTH-16;
 		}
 		else{
@@ -942,9 +962,17 @@ static u32 CreateRtsFile(const TCHAR *filename)
 	UINT written;
 	FRESULT res;
 
-	res = f_open(&gfile, filename, FA_WRITE | FA_CREATE_ALWAYS);
-	if (res != FR_OK)
+	TCHAR rtsnamebuf[100];
+	u32 len = 0;
+	while(len < sizeof(rtsnamebuf) && gamefilename[len])
+		len++;
+	if(len >= sizeof(rtsnamebuf) || len < 3)
 		return 0;
+	memcpy(rtsnamebuf,gamefilename,len);
+	rtsnamebuf[len] = '\0';
+	rtsnamebuf[len-3] = 'r';
+	rtsnamebuf[len-2] = 't';
+	rtsnamebuf[len-1] = 's';
 
 	memset(pReadCache, 0xFF, RTS_CREATE_CHUNK);
 	for (offset = 0; offset < RTS_FILE_SIZE; offset += RTS_CREATE_CHUNK)
@@ -1001,16 +1029,19 @@ u32 Check_RTS(TCHAR* gamefilename)
 	{
 		ShowbootProgress(gl_make_RTS);
 		if (!CreateRtsFile(rtsnamebuf))
-			return 0;
-		rtsfilesize = RTS_FILE_SIZE;
+			rtsfilesize = 0;
+		else
+			rtsfilesize = RTS_FILE_SIZE;
 	}
-
-	if (!LoadRTSfile(rtsnamebuf))
-		return 0;
-
-	res = Check_game_RTS_FAT(rtsnamebuf, 3);
-	if (res == 0xffffffff)
-		return 0;
+	if(rtsfilesize && !LoadRTSfile(rtsnamebuf))
+		rtsfilesize = 0;
+	if(rtsfilesize)
+	{
+		res = Check_game_RTS_FAT(rtsnamebuf,3);//rts FAT
+		if(res == 0xffffffff){
+			rtsfilesize = 0;
+		}
+	}
 
 	return rtsfilesize;
 }

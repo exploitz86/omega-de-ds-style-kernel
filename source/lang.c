@@ -16,7 +16,7 @@ char* gl_theme_credit2;
 char* gl_generating_emu;
 
 char* gl_menu_btn;
-char* gl_lastest_game;
+char* gl_nor_delete_info;
 int gl_font_above_extent = 0;
 
 char* gl_writing;
@@ -135,7 +135,7 @@ const char en_file_overflow[]=DSTEXT_STATUS_FILE_TOO_BIG;
 
 const char en_menu_btn[]=" (B) No     (A) OK";
 const char en_writing[]=DSTEXT_STATUS_WRITING;
-const char en_lastest_game[]=DSTEXT_STATUS_SELECT_LATEST;
+const char en_nor_delete_info[]=DSTEXT_STATUS_SELECT_LATEST;
 
 const char en_time[]="     Time";
 const char en_Mon[]="Mon";
@@ -261,7 +261,7 @@ const char th_file_overflow[]= "ไฟล์ใหญ่เกินไป";
 
 const char th_menu_btn[]     = "(B)ยกเลิก   (A)ตกลง";
 const char th_writing[]      = "กำลังเขียน...";
-const char th_lastest_game[] = "เลือกเกมล่าสุด";
+const char th_nor_delete_info[] = "ลบได้เฉพาะเกม NOR ล่าสุด";
 
 const char th_time[]         = "     เวลา";
 const char th_Mon[]          = "จัน";
@@ -387,7 +387,7 @@ void LoadChinese(void)
 
 	gl_menu_btn = (char*)zh_menu_btn;
 	gl_writing = (char*)zh_writing;
-	gl_lastest_game = (char*)zh_lastest_game;
+	gl_nor_delete_info = (char*)zh_lastest_game;
 
 
 	gl_time = (char*)zh_time;
@@ -508,7 +508,7 @@ void LoadEnglish(void)
 
 	gl_menu_btn = (char*)en_menu_btn;
 	gl_writing = (char*)en_writing;
-	gl_lastest_game = (char*)en_lastest_game;
+	gl_nor_delete_info = (char*)en_nor_delete_info;
 
 	gl_time = (char*)en_time;
 	gl_Mon = (char*)en_Mon;
@@ -625,7 +625,7 @@ void LoadThai(void)
 
 	gl_menu_btn            = (char*)th_menu_btn;
 	gl_writing             = (char*)th_writing;
-	gl_lastest_game        = (char*)th_lastest_game;
+	gl_nor_delete_info        = (char*)th_nor_delete_info;
 
 	gl_time                = (char*)th_time;
 	gl_Mon                 = (char*)th_Mon;

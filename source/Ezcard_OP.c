@@ -13,6 +13,7 @@
 #include "ezkernel.h"
 #include "draw.h"
 #include "Ezcard_OP.h"
+#include "nor_flash_status.h"
 
 
 #include "lang.h"
@@ -114,6 +115,9 @@ u32 IWRAM_CODE Read_SD_sectors(u32 address,u16 count,u8* SDbuffer)
 				delay(5000);
 				goto read_again;
 			}
+			/* Do not expose stale SRAM contents as a successful sector read. */
+			SD_Disable();
+			return 1;
 		}
 		dmaCopy((void*)0x9E00000, SDbuffer+i*512, blocks*512);
 	}
@@ -144,13 +148,101 @@ u32 IWRAM_CODE Write_SD_sectors(u32 address,u16 count, const u8* SDbuffer)
 
 		res = Wait_SD_Response();
 		if(res==1)
+		{
+			/* Leave the cartridge SD interface in the same state as on success. */
+			SD_Disable();
 			return 1;
+		}
 	}
 	delay(3000);
 	SD_Disable();
 	return 0;
 }
 // --------------------------------------------------------------------
+u8 IWRAM_CODE Wait_Flash_Operation(vu16 *flash, vu16 *status, u16 expected,
+	u8 write_buffer, NOR_FlashProgressCallback progress, void *progress_context)
+{
+	u32 poll_count = 0;
+	u16 first, second;
+	u16 callback_ime;
+	NOR_StatusDecision decision;
+
+	for(;;)
+	{
+		first = *status;
+		second = *status;
+		decision = NOR_ClassifyStatusPair(first, second, write_buffer);
+
+		if(decision == NOR_STATUS_BUSY)
+		{
+			poll_count++;
+			if(progress && ((poll_count & 0xFFFFu) == 0))
+			{
+				callback_ime = REG_IME;
+				progress(progress_context);
+				REG_IME = callback_ime;
+			}
+			continue;
+		}
+		if(decision == NOR_STATUS_BUFFER_ABORT)
+		{
+			flash[0x555] = 0xAA;
+			flash[0x2AA] = 0x55;
+			flash[0x555] = 0xF0;
+			return 0;
+		}
+		if(decision == NOR_STATUS_CONFIRM_DQ5)
+		{
+			first = *status;
+			second = *status;
+			decision = NOR_ClassifyDQ5ConfirmPair(first, second);
+			if(decision == NOR_STATUS_OPERATION_FAILED)
+			{
+				*flash = 0xF0;
+				return 0;
+			}
+		}
+
+		first = *status;
+		second = *status;
+		decision = NOR_ClassifyReadbackPair(first, second, expected);
+		if(decision == NOR_STATUS_OPERATION_COMPLETE)
+			return 1;
+		if(decision == NOR_STATUS_BUSY)
+		{
+			poll_count++;
+			if(progress && ((poll_count & 0xFFFFu) == 0))
+			{
+				callback_ime = REG_IME;
+				progress(progress_context);
+				REG_IME = callback_ime;
+			}
+			continue;
+		}
+
+		*flash = 0xF0;
+		return 0;
+	}
+}
+
+u8 IWRAM_CODE Verify_Flash_Erased(vu16 *start, u32 word_count)
+{
+	u32 i;
+	for(i=0;i<word_count;i++)
+		if(start[i] != 0xFFFF)
+			return 0;
+	return 1;
+}
+
+u8 IWRAM_CODE Verify_Flash_Data(vu16 *start, const vu16 *expected, u32 word_count)
+{
+	u32 i;
+	for(i=0;i<word_count;i++)
+		if(start[i] != expected[i])
+			return 0;
+	return 1;
+}
+
 u16 IWRAM_CODE Read_S71NOR_ID()
 {
 	u16 ID1;
@@ -171,6 +263,7 @@ u16 Read_S98NOR_ID()
 	*((vu16 *)(FlashBase_S98+0x2AA*2)) = 0x55;
 	*((vu16 *)(FlashBase_S98+0x555*2)) = 0x90;
 	ID1 = *((vu16 *)(FlashBase_S98+0xE*2));
+	*((vu16 *)(FlashBase_S98)) = 0xF0;
 	return ID1;
 }
 // --------------------------------------------------------------------
@@ -265,7 +358,10 @@ void IWRAM_CODE SetRompageWithHardReset(u16 page,u32 bootmode)
 	SetRompage(page);
 	u32 reset_flags = RESET_PALETTE | RESET_VRAM | RESET_OAM | RESET_SIO | RESET_SOUND | RESET_OTHER;
 	if(bootmode == 0)
+	{
 		reset_flags |= RESET_EWRAM;
+		ResetWithEwramClear(reset_flags);
+	}
 	RegisterRamReset(reset_flags);
 	if(bootmode==1) {
 		if(key_L)
@@ -326,13 +422,16 @@ void IWRAM_CODE Bank_Switching(u8 bank)
 	*((vu8 *)(SAVE_sram_base+0x0000)) = bank ;
 }
 // --------------------------------------------------------------------
-void IWRAM_CODE Save_info(u32 info_offset, u16 * info_buffer,u32 buffersize)
+u8 IWRAM_CODE Save_info(u32 info_offset, u16 * info_buffer,u32 buffersize)
 {
 	u32 offset;
 	vu16* buf = (vu16*)info_buffer ;
 	register u32 loopwrite ;
-	vu16 v1,v2;
+	u16 old_ie = REG_IE;
+	u8 succeeded = 0;
 
+	/* The default VBlank handler is in S71 ROM, which is busy during these commands. */
+	REG_IE = old_ie & (u16)~IRQ_VBLANK;
 	u16 S71id = Read_S71NOR_ID();
 	*((vu16 *)(FlashBase_S71)) = 0xF0 ;
 
@@ -344,11 +443,11 @@ void IWRAM_CODE Save_info(u32 info_offset, u16 * info_buffer,u32 buffersize)
 	*((vu16 *)(FlashBase_S71+0x555*2)) = 0xAA ;
 	*((vu16 *)(FlashBase_S71+0x2AA*2)) = 0x55 ;
 	*((vu16 *)(FlashBase_S71+offset)) = 0x30 ;//erase
-	do
-	{
-		v1 = *((vu16 *)(FlashBase_S71+offset)) ;
-		v2 = *((vu16 *)(FlashBase_S71+offset)) ;
-	}while(v1!=v2);
+	if(!Wait_Flash_Operation((vu16*)FlashBase_S71,
+		(vu16*)(FlashBase_S71+offset), 0xFFFF, 0, 0, 0))
+		goto save_info_done;
+	if(!Verify_Flash_Erased((vu16*)(FlashBase_S71+offset),0x10000/2))
+		goto save_info_done;
 	//erase finish
 	if(S71id == 0x2202) //PL064
 	{
@@ -358,11 +457,9 @@ void IWRAM_CODE Save_info(u32 info_offset, u16 * info_buffer,u32 buffersize)
 			*((vu16 *)(FlashBase_S71+0x2AA*2)) = 0x55 ;
 			*((vu16 *)(FlashBase_S71+0x555*2)) = 0xA0 ;
 			*((vu16 *)(FlashBase_S71+offset+loopwrite*2)) = buf[loopwrite];
-			do
-			{
-				v1 = *((vu16 *)(FlashBase_S71+offset+loopwrite*2)) ;
-				v2 = *((vu16 *)(FlashBase_S71+offset+loopwrite*2)) ;
-			}while(v1!=v2);
+			if(!Wait_Flash_Operation((vu16*)FlashBase_S71,
+				(vu16*)(FlashBase_S71+offset+loopwrite*2), buf[loopwrite], 0, 0, 0))
+				goto save_info_done;
 		}
 	}
 	else { //GL064
@@ -378,38 +475,44 @@ void IWRAM_CODE Save_info(u32 info_offset, u16 * info_buffer,u32 buffersize)
 				*((vu16 *)(FlashBase_S71+offset+loopwrite*32 +2*i )) = buf[loopwrite*16+i];
 			}
 			*((vu16 *)(FlashBase_S71+offset+loopwrite*32)) = 0x29;
-
-			do
-			{
-				v1 = *((vu16 *)(FlashBase_S71+offset+loopwrite*32));
-				v2 = *((vu16 *)(FlashBase_S71+offset+loopwrite*32));
-			}while(v1!=v2);
+			if(!Wait_Flash_Operation((vu16*)FlashBase_S71,
+				(vu16*)(FlashBase_S71+offset+loopwrite*32+0x1E),
+				buf[loopwrite*16+15], 1, 0, 0))
+				goto save_info_done;
+			if(!Verify_Flash_Data((vu16*)(FlashBase_S71+offset+loopwrite*32),
+				&buf[loopwrite*16],16))
+				goto save_info_done;
 		}
 	}
 
+	succeeded = 1;
+save_info_done:
 	*((vu16 *)(FlashBase_S71)) = 0xF0;
+	REG_IE = old_ie;
+	return succeeded;
 }
 
 // --------------------------------------------------------------------
-void IWRAM_CODE Save_sav_info(u16 * SAV_info_buffer,u32 buffersize)
+u8 IWRAM_CODE Save_sav_info(u16 * SAV_info_buffer,u32 buffersize)
 {
-	Save_info(SAVE_info_offset, SAV_info_buffer,buffersize);
+	return Save_info(SAVE_info_offset, SAV_info_buffer,buffersize);
 }
 // --------------------------------------------------------------------
-void IWRAM_CODE Save_NOR_info(u16 * NOR_info_buffer,u32 buffersize)
+u8 IWRAM_CODE Save_NOR_info(u16 * NOR_info_buffer,u32 buffersize)
 {
-	Save_info(NOR_info_offset, NOR_info_buffer,buffersize);
+	return Save_info(NOR_info_offset, NOR_info_buffer,buffersize);
 }
 // --------------------------------------------------------------------
-void IWRAM_CODE Save_SET_info(u16 * SET_info_buffer,u32 buffersize)
+u8 IWRAM_CODE Save_SET_info(u16 * SET_info_buffer,u32 buffersize)
 {
-	Save_info(SET_info_offset, SET_info_buffer,buffersize);
+	return Save_info(SET_info_offset, SET_info_buffer,buffersize);
 }
 // --------------------------------------------------------------------
 void IWRAM_CODE Read_NOR_info()
 {
 	register u32 loopwrite ;
-	for(loopwrite=0;loopwrite<sizeof(FM_NOR_FS)*0x40;loopwrite++)
+	/* The destination is read as halfwords, so bound the loop in halfwords too. */
+	for(loopwrite=0;loopwrite<sizeof(pNorFS)/(sizeof(u16));loopwrite++)
 	{
 		((u16*)pNorFS)[loopwrite] = *((vu16 *)(FlashBase_S71+NOR_info_offset+loopwrite*2));
 	}

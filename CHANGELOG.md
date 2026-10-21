@@ -2,6 +2,21 @@
 
 Changes made on top of the original DS Style 7.4c source (EZ-Flash Omega Definitive Edition).
 
+## DS Style v7.4.6-test (hardware-test candidate)
+
+- Built from the current audit branch with the EWRAM user-stack relocation and S71 VBlank masking for hardware verification.
+- This candidate has not been tested on a physical cartridge and is not a published release. Keep a known-good kernel available for recovery.
+
+## DS Style v7.4.1
+
+- Prevented failed SD reads from loading stale data into saves, save states, or sectors.
+- Checked save and RTS writes before reporting success, and kept pending save recovery available after a failed write.
+- Bounded malformed cheat data and filename handling before parsing or extension replacement.
+- Fixed ROM patch writes that cross an 8 MiB PSRAM page boundary.
+- Corrected bundled installer test expectations to match the delivered v7.4 style packages.
+
+## DS Style v7.4
+
 ## 1. Build system
 
 - **Assembler include path** – GCC's `-I` does not reach GNU `as`, so `.include "gba_rts3_defs.inc"` failed.

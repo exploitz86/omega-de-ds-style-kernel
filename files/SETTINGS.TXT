@@ -1,0 +1,83 @@
+# DS Style settings
+# Edit the value after '='. Unknown lines are ignored.
+
+# Options: Light, Dark
+# Theme controls which full-screen background set the launcher uses.
+Theme = Light
+
+# Options: Pale Blue, Light Blue, Blue, Dark Blue, Green, Pale Green, Bright Green, Lime, Yellow, Red, Orange, Brown, Pink, Pale Pink, Magenta, Purple
+# Colour controls the top bar, icons, and selection colour.
+Colour = Pale Blue
+
+# Load style reads .bin files from /SYSTEM/KERNELS.
+# Select one from the settings menu to prepare it for installation.
+
+# Options: On, Off
+# Hide system files keeps kernel and metadata files out of the root file browser.
+Hide system files = On
+
+# Options: On, Off
+# List folders keeps non-game folders in list view.
+List folders = On
+
+# Options: On, Off
+# Clean list removes extensions/brackets and hides right-side file details in list view.
+Clean list = On
+
+# Options: 24 hour, 12 hour
+# Clock format controls the top bar clock display.
+Clock format = 12 hour
+
+# Options: On, Off
+Start screen = On
+
+# Options: Start, SD, NOR, Last game, Recents, Favourites
+# Boot to chooses the first screen shown after startup.
+Boot to = Start
+
+# Options: Last played, Favourites
+Start screen source = Last played
+
+# Options: List, List + art, Horizontal, Vertical
+# View mode chooses how files are displayed.
+View mode = Horizontal
+
+# Options: Top, Center, Bottom
+# List art chooses where artwork appears in List + art view.
+List art = Bottom
+
+# Options: Title, Box
+# Title uses /SYSTEM/IMGS thumbnails. Box uses /SYSTEM/IMGS2 thumbnails.
+Thumbnails = Box
+
+# Options: Off, Accent, Black, Grey, White
+# Art border draws a one-pixel outline around the selected carousel artwork.
+Art border = Off
+
+# Options: Full, No Start, Off
+# Rounded corners rounds artwork. No Start keeps the Start screen artwork square.
+Rounded corners = Off
+
+# Options: Center, Left, Right
+# Vertical side controls the small previews in vertical carousel view.
+Vertical side = Left
+
+# Options: Center, Top, Bottom
+# Horizontal side controls the small previews in horizontal carousel view.
+Horizontal side = Center
+
+# Options: On, Off
+# Sounds controls launcher UI button sounds after startup.
+Sounds = On
+
+# Options: English (UK), English (US), Español, Français, Português, Deutsch, Türkçe, Italiano, Nederlands, Svenska, Suomi, Chinese
+Language = English (US)
+
+# Options: Start, Select, L, A, B
+Quick start hotkey = Start
+
+# Options: Clean, Addon
+Last launch mode = Clean
+
+# Options: 0 or higher. 0 is the first favourite.
+Favourite index = 0

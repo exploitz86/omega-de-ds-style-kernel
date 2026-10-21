@@ -52,7 +52,12 @@ CXXFLAGS	:=	$(CFLAGS) -fno-rtti -fno-exceptions
 
 ASFLAGS	:=	-g $(ARCH) -I$(TOPDIR)/source \
 		-Xassembler -I -Xassembler $(TOPDIR)/source
-LDFLAGS	=	-g $(ARCH) -Wl,-Map,$*.map -Wl,--gc-sections
+# Keep the user stack out of IWRAM .data and leave a bounded heap in EWRAM.
+GBA_USER_STACK_TOP := 0x0203F000
+GBA_HEAP_END := 0x0203C000
+LDFLAGS	=	-g $(ARCH) -Wl,-Map,$(notdir $*.map) -Wl,--gc-sections \
+		-Wl,--defsym,__sp_usr=$(GBA_USER_STACK_TOP) \
+		-Wl,--defsym,__eheap_end=$(GBA_HEAP_END)
 
 #---------------------------------------------------------------------------------
 # any extra libraries we wish to link with the project
