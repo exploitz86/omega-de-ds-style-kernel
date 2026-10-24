@@ -28,6 +28,7 @@ extern void RTS_Sleep_key(void);
 extern void RTS_Reset_key(void);
 //extern void RTS_Wakeup_key(void);
 extern void RTS_switch(void);
+extern void RTS_menu_min(void);
 extern void RTS_state_identity(void);
 extern void RTS_rts2_header(void);
 extern void Cheat_count(void);

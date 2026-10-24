@@ -3,17 +3,39 @@ setlocal EnableExtensions DisableDelayedExpansion
 
 if /I "%~1"=="__BUILD_CHILD__" goto BUILD_CHILD
 
+rem The version lives in ONE place: source\launcher_version.h (LAUNCHER_VERSION_TEXT).
+rem Output names, the log name and the Makefile target are all derived from it.
+set "VERSION_TEXT="
+for /f tokens^=2^ delims^=^" %%V in ('findstr /C:"LAUNCHER_VERSION_TEXT" "%~dp0source\launcher_version.h"') do if not defined VERSION_TEXT set "VERSION_TEXT=%%V"
+if not defined VERSION_TEXT (
+    echo ERROR: Could not read LAUNCHER_VERSION_TEXT from source\launcher_version.h
+    pause
+    exit /b 1
+)
+rem File names must not contain spaces or other special characters.
+set "VERSION_SAFE=%VERSION_TEXT: =-%"
+set "VERSION_SAFE=%VERSION_SAFE:&=-%"
+set "VERSION_SAFE=%VERSION_SAFE:(=-%"
+set "VERSION_SAFE=%VERSION_SAFE:)=-%"
+set "VERSION_DASH=%VERSION_SAFE:.=-%"
+set "PROJECT_NAME=DS-Style-%VERSION_SAFE%-Source1"
+set "LOG_NAME=build-r54-ds-style-%VERSION_DASH%.log"
+
 echo.
 echo ============================================================
-echo DS Style 7.4c Build
+echo DS Style - Enhanced Build
 echo ============================================================
 echo This pause confirms the CMD launched correctly.
 echo Press any key to validate and build.
 echo.
 pause
 
+set "REBUILD_IMAGES=0"
+choice /C YN /N /M "Rebuild image headers in the images folder? [Y/N] "
+if not errorlevel 2 set "REBUILD_IMAGES=1"
+echo.
+
 set "SCRIPT_DIR=%~dp0"
-set "PROJECT_NAME=DS-Style-7.4c-Source1"
 set "BUILD_DIR=%SCRIPT_DIR%build"
 
 rem Start every normal build with a clean build-output folder.
@@ -37,13 +59,13 @@ for %%F in (
     "%SCRIPT_DIR%%PROJECT_NAME%.elf"
     "%SCRIPT_DIR%%PROJECT_NAME%.gba"
     "%SCRIPT_DIR%%PROJECT_NAME%.map"
-    "%SCRIPT_DIR%build-r54-ds-style-7-4c.log"
+    "%SCRIPT_DIR%%LOG_NAME%"
 ) do if exist "%%~F" del /Q "%%~F" >nul 2>&1
 
-set "LOG=%BUILD_DIR%\build-r54-ds-style-7-4c.log"
+set "LOG=%BUILD_DIR%\%LOG_NAME%"
 
 echo ============================================================ > "%LOG%"
-echo DS Style 7.4c Build>> "%LOG%"
+echo DS Style - Enhanced Build>> "%LOG%"
 echo Started: %DATE% %TIME%>> "%LOG%"
 echo Script: %~f0>> "%LOG%"
 echo Source: %SCRIPT_DIR%>> "%LOG%"
@@ -144,13 +166,17 @@ if not exist "Grit\Build Skin Files.ps1" (
 )
 
 echo.
-echo Verifying and regenerating graphics with bundled Grit...
-powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%BUILD_CWD%\Grit\Build-All-Image-Files.ps1" -Root "%BUILD_CWD%"
-if errorlevel 1 (
-    echo ERROR: Image verification/regeneration failed.
-    exit /b 1
+if "!REBUILD_IMAGES!"=="1" (
+    echo Verifying and regenerating graphics with bundled Grit...
+    powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%BUILD_CWD%\Grit\Build-All-Image-Files.ps1" -Root "%BUILD_CWD%"
+    if errorlevel 1 (
+        echo ERROR: Image verification/regeneration failed.
+        exit /b 1
+    )
+    echo PASS: All image headers reproduced from PNG/BMP sources.
+) else (
+    echo Skipping image header rebuild; using existing headers.
 )
-echo PASS: All image headers reproduced from PNG/BMP sources.
 
 echo.
 echo Validating merged and optimized source...
@@ -161,8 +187,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo DS Style 7.4c source validation passed.
-echo Grit image verification/regeneration completed before source validation.
+echo DS Style %VERSION_TEXT% source validation passed.
 
 for %%F in (SD_LIST SET START HELP) do (
     if not exist "images\blank\%%F.h" (
@@ -199,7 +224,6 @@ echo DEVKITPRO=%DEVKITPRO%
 echo DEVKITARM=%DEVKITARM%
 echo LIBGBA=%LIBGBA%
 
-set "PROJECT_NAME=DS-Style-7.4c-Source1"
 set "BUILD_DRIVE="
 set "BUILD_OUTPUT_GBA=build\%PROJECT_NAME%.gba"
 set "BUILD_OUTPUT_ELF=build\%PROJECT_NAME%.elf"
@@ -256,7 +280,7 @@ if errorlevel 1 (
 
 echo.
 echo Cleaning...
-make clean
+make clean TARGET=!PROJECT_NAME!
 if errorlevel 1 (
     set "MAKE_EXIT=!ERRORLEVEL!"
     popd
@@ -267,7 +291,7 @@ if errorlevel 1 (
 
 echo.
 echo Building...
-make
+make TARGET=!PROJECT_NAME!
 set "MAKE_EXIT=!ERRORLEVEL!"
 popd
 if defined BUILD_DRIVE subst !BUILD_DRIVE! /D >nul
@@ -330,7 +354,7 @@ echo   GBA: !BUILT_GBA!
 echo   ELF: !BUILT_ELF!
 echo   BIN: %BUILD_CWD%\ezkernelnew.bin
 if exist "!BUILT_MAP!" echo   MAP: !BUILT_MAP!
-echo   LOG: %BUILD_CWD%\build\build-r54-ds-style-7-4c.log
+echo   LOG: %BUILD_CWD%\build\%LOG_NAME%
 
 echo.
 echo SHA-256:

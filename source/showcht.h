@@ -127,4 +127,6 @@ u32 SetCheatGroupExpanded(u32 entry_index, u32 total_entries, u32 expanded);
 int Show_all_KEY_val(FIL* file);
 u32 Check_cht_file(TCHAR *gamefilename);
 void Open_cht_file(TCHAR *gamefilename,u32 havecht);
+u32 CheatStateSavedCount(TCHAR *gamefilename, u32 havecht);
+u32 CheatStateLoadHeadless(TCHAR *gamefilename, u32 havecht);
 void Trim(char s[]);

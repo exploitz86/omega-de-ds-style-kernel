@@ -25,7 +25,8 @@ endif
 # the makefile is found
 #
 #---------------------------------------------------------------------------------
-TARGET		:= DS-Style-7.4c-Source1
+VERSION		:= $(shell sed -n 's/.*LAUNCHER_VERSION_TEXT *"\([^"]*\)".*/\1/p' $(TOPDIR)/source/launcher_version.h)
+TARGET		?= DS-Style-$(VERSION)-Source1
 BUILD		:= build/obj
 SOURCES		:= source source/ff15
 INCLUDES	:= include source/ff15 images
@@ -49,7 +50,8 @@ CFLAGS	+=	$(INCLUDE)
 
 CXXFLAGS	:=	$(CFLAGS) -fno-rtti -fno-exceptions
 
-ASFLAGS	:=	-g $(ARCH) -I$(TOPDIR)/source
+ASFLAGS	:=	-g $(ARCH) -I$(TOPDIR)/source \
+		-Xassembler -I -Xassembler $(TOPDIR)/source
 LDFLAGS	=	-g $(ARCH) -Wl,-Map,$*.map -Wl,--gc-sections
 
 #---------------------------------------------------------------------------------

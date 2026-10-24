@@ -1,4 +1,4 @@
-DS Style 7.4c - Grit image build
+DS Style Enhanced - Grit image build
 
 Normal kernel build:
   Build-DS-Style-Enhanced.cmd

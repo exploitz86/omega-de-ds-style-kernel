@@ -1,5 +1,6 @@
 #include "lang.h"
 #include "launcher_text.h"
+#include "launcher_version.h"
 
 #include "asc126_old.h"
 #include "asc126_new.h"
@@ -161,7 +162,7 @@ const char en_ok_btn[]=" OK";
 const char en_formatnor_info1[]="Are you sure?";
 const char en_formatnor_info2[]="This will take a while.";
 
-const char en_theme_credit[]="DS Style v6";
+const char en_theme_credit[]="DS Style " LAUNCHER_VERSION_TEXT;
 const char en_theme_credit2[]="by FrankieT19";
 
 const char en_check_sav[]=DSTEXT_STATUS_CHECK_SAVE;
@@ -287,7 +288,7 @@ const char th_ok_btn[]       = "ตกลง";
 const char th_formatnor_info1[] = "ยืนยัน?";
 const char th_formatnor_info2[] = "ใช้เวลาสักครู่";
 
-const char th_theme_credit[] = "DS Style v6";
+const char th_theme_credit[] = "DS Style " LAUNCHER_VERSION_TEXT;
 const char th_theme_credit2[]= "by FrankieT19";
 
 const char th_check_sav[]    = "ตรวจสอบ SAV...";

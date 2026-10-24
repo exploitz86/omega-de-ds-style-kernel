@@ -616,6 +616,7 @@ u16 gl_Breathing_B;
 
 u16 gl_toggle_reset;
 u16 gl_toggle_backup;
+u16 gl_cheat_remember;
 
 u16 gl_SD_R;
 u16 gl_SD_G;
@@ -702,6 +703,8 @@ u16 gl_color_NORFULL = RGB(31, 00, 00);
 u16 gl_color_btn_clean = RGB(10, 14, 17);
 extern u32 gl_cheat_selected_count;
 extern u32 CheatSelectionAppliesTo(TCHAR *gamefilename, u32 havecht);
+extern u32 CheatStateSavedCount(TCHAR *gamefilename, u32 havecht);
+extern u32 CheatStateLoadHeadless(TCHAR *gamefilename, u32 havecht);
 extern void CheatSelectionForget(void);
 /* Save metadata and launcher settings are never staged at the same time. Reuse
    the existing 1 KiB settings workspace instead of reserving a second buffer. */
@@ -5373,6 +5376,11 @@ void CheckSwitch(void)
 	{
 		gl_toggle_backup = 0x0;
 	}
+	gl_cheat_remember = Read_SET_info(assress_cheat_remember);
+	if( (gl_cheat_remember != 0x0) && (gl_cheat_remember != 0x1))
+	{
+		gl_cheat_remember = 0x0;
+	}
 	{
 		u16 led_status = (gl_led_open_sel<<7) | (gl_Breathing_R<<5) | (gl_Breathing_G<<4) | (gl_Breathing_B<<3) | (gl_SD_R<<2) | (gl_SD_G<<1) | (gl_SD_B) ;
 		Set_LED_control(led_status);
@@ -9110,6 +9118,7 @@ static void Launcher_SaveSettingsInfo(void)
     SET_info_buffer[assress_SD_B] = gl_SD_B;
     SET_info_buffer[assress_toggle_reset] = gl_toggle_reset;
     SET_info_buffer[assress_toggle_backup] = gl_toggle_backup;
+	SET_info_buffer[assress_cheat_remember] = gl_cheat_remember;
 
     Launcher_PrepareSettingsFlashWrite();
     Save_SET_info(SET_info_buffer, 0x200);
@@ -9743,6 +9752,7 @@ typedef enum
     SETTINGS_ADDON_HOTKEY,
     SETTINGS_FULL_INTRO,
     SETTINGS_BACKUP_SAVES,
+	SETTINGS_REMEMBER_CHEATS,
     SETTINGS_LED_SETTINGS,
     SETTINGS_HELP,
     SETTINGS_TOTAL
@@ -9789,6 +9799,7 @@ static void Launcher_SettingsGetLine(u32 item, char *out, u32 out_size)
         case SETTINGS_ADDON_HOTKEY: label = DSTEXT_SETTINGS_ADDON_HOTKEY; value = ">"; break;
         case SETTINGS_FULL_INTRO: label = DSTEXT_SETTINGS_ENABLE_BIOS; value = Launcher_OnOffText(gl_toggle_reset); break;
         case SETTINGS_BACKUP_SAVES: label = DSTEXT_SETTINGS_BACKUP_SAVES; value = Launcher_OnOffText(gl_toggle_backup); break;
+		case SETTINGS_REMEMBER_CHEATS: label = "Remember cheats"; value = Launcher_OnOffText(gl_cheat_remember); break;
         case SETTINGS_LED_SETTINGS: label = DSTEXT_SETTINGS_LED; value = ">"; break;
         case SETTINGS_HELP: label = DSTEXT_SETTINGS_HELP; value = ">"; break;
         default: break;
@@ -10536,6 +10547,11 @@ static void Launcher_SettingsPopupToggleEx(const char *title, u32 total, void (*
             }
         }
     }
+}
+
+static void Launcher_ThemePickerGetLine(u32 item, char *out, u32 out_size)
+{
+    snprintf(out, out_size, "%c %s", (item == launcher_theme_index) ? '>' : ' ', launcher_themes[item].name);
 }
 
 static void Launcher_SettingsPopupToggle(const char *title, u32 total, void (*get_line)(u32,char*,u32), void (*toggle_item)(u32))
@@ -11303,6 +11319,10 @@ static void Launcher_SettingsToggle(u32 item, int dir)
             break;
         case SETTINGS_BACKUP_SAVES:
             gl_toggle_backup ^= 1;
+            Launcher_SaveSettingsInfo();
+            break;
+        case SETTINGS_REMEMBER_CHEATS:
+            gl_cheat_remember ^= 1;
             Launcher_SaveSettingsInfo();
             break;
         case SETTINGS_LED_SETTINGS:
@@ -13260,7 +13280,7 @@ typedef enum
 
 static const u32 launcher_settings_interface_items[] = { SETTINGS_TIME_SETTINGS, SETTINGS_CLOCK_FORMAT, SETTINGS_LANGUAGE, SETTINGS_SOUNDS, SETTINGS_HIDE_SYSTEM, SETTINGS_LIST_FOLDERS, SETTINGS_CLEAN_LIST, SETTINGS_THEME_MODE, SETTINGS_THEME, SETTINGS_LOAD_STYLE, SETTINGS_VIEW_MODE, SETTINGS_THUMBNAILS, SETTINGS_ART_BORDER,
     SETTINGS_ROUNDED_CORNERS, SETTINGS_VERTICAL_SIDE, SETTINGS_HORIZONTAL_SIDE, SETTINGS_LIST_ART_POSITION, SETTINGS_START_ENABLED, SETTINGS_BOOT_TO, SETTINGS_START_SOURCE };
-static const u32 launcher_settings_games_items[] = { SETTINGS_BOOT_ENGINE, SETTINGS_AUTO_SAVE, SETTINGS_AUTO_START, SETTINGS_ADDON_SETTINGS, SETTINGS_BOOT_MODE, SETTINGS_SLEEP_HOTKEY, SETTINGS_ADDON_HOTKEY, SETTINGS_FULL_INTRO, SETTINGS_BACKUP_SAVES };
+static const u32 launcher_settings_games_items[] = { SETTINGS_BOOT_ENGINE, SETTINGS_AUTO_SAVE, SETTINGS_AUTO_START, SETTINGS_ADDON_SETTINGS, SETTINGS_BOOT_MODE, SETTINGS_SLEEP_HOTKEY, SETTINGS_ADDON_HOTKEY, SETTINGS_FULL_INTRO, SETTINGS_BACKUP_SAVES, SETTINGS_REMEMBER_CHEATS };
 static const u32 launcher_settings_hardware_items[] = { SETTINGS_MODE_B, SETTINGS_INGAME_RTC, SETTINGS_LED_SETTINGS };
 
 static const u32 *launcher_settings_active_items = 0;
@@ -13316,6 +13336,78 @@ static void Launcher_SettingsActiveGetLine(u32 item, char *out, u32 out_size)
         return;
     }
     Launcher_SettingsGetLine(launcher_settings_active_items[item], out, out_size);
+}
+
+static void Launcher_ThemePickerPopup(u32 category, u32 bg_selected, u32 bg_top)
+{
+    const u32 visible = 7;
+    u32 selected = launcher_theme_index;
+    u32 top = (selected >= visible) ? (selected - visible + 1) : 0;
+    u32 dirty = 2;
+
+    while(1)
+    {
+        VBlankIntrWait();
+        UIAudio_Update();
+        if(dirty)
+        {
+            if(dirty == 2)
+                Launcher_SettingsDrawList(Launcher_SettingsCategoryTitle(category), launcher_settings_active_total, bg_selected, bg_top, Launcher_SettingsActiveGetLine);
+            Launcher_SettingsDrawPopupEx(DSTEXT_SETTINGS_COLOUR, LAUNCHER_THEME_COUNT, selected, top, Launcher_ThemePickerGetLine, 45);
+            dirty = 0;
+        }
+        scanKeys();
+        {
+            u16 keysdown = keysDown();
+            if(keysdown & KEY_B)
+            {
+                UIAudio_PlayBack();
+                return;
+            }
+            if((keysdown & KEY_DOWN) && selected + 1 < LAUNCHER_THEME_COUNT)
+            {
+                u32 old_selected = selected;
+                u32 old_top = top;
+                selected++;
+                if(selected >= top + visible)
+                    top = selected - visible + 1;
+                UIAudio_PlaySfx(UI_SFX_MOVE);
+                if(top == old_top)
+                {
+                    Launcher_SettingsDrawPopupRowEx(old_selected, selected, top, Launcher_ThemePickerGetLine, 45);
+                    Launcher_SettingsDrawPopupRowEx(selected, selected, top, Launcher_ThemePickerGetLine, 45);
+                }
+                else
+                    dirty = 1;
+            }
+            else if((keysdown & KEY_UP) && selected > 0)
+            {
+                u32 old_selected = selected;
+                u32 old_top = top;
+                selected--;
+                if(selected < top)
+                    top = selected;
+                UIAudio_PlaySfx(UI_SFX_MOVE);
+                if(top == old_top)
+                {
+                    Launcher_SettingsDrawPopupRowEx(old_selected, selected, top, Launcher_ThemePickerGetLine, 45);
+                    Launcher_SettingsDrawPopupRowEx(selected, selected, top, Launcher_ThemePickerGetLine, 45);
+                }
+                else
+                    dirty = 1;
+            }
+            else if(keysdown & (KEY_A | KEY_START))
+            {
+                UIAudio_PlaySfx(UI_SFX_ACCEPT);
+                if(selected != launcher_theme_index)
+                {
+                    Launcher_SetThemeIndex((u16)selected);
+                    Launcher_SaveTheme();
+                }
+                dirty = 2;
+            }
+        }
+    }
 }
 
 static void Launcher_SettingsSelectCategory(u32 category)
@@ -13451,7 +13543,10 @@ static void Launcher_SettingsCategoryWindow(u32 category)
             {
                 u32 changed_item = launcher_settings_active_items[selected];
                 UIAudio_PlaySfx(UI_SFX_ACCEPT);
-                Launcher_SettingsToggle(changed_item, 1);
+                if(changed_item == SETTINGS_THEME && (keysdown & KEY_A))
+                    Launcher_ThemePickerPopup(category, selected, top);
+                else
+                    Launcher_SettingsToggle(changed_item, 1);
                 if(launcher_settings_tab_return != -1)
                 {
                     launcher_settings_category_selected[category] = selected;
@@ -15432,7 +15527,7 @@ u8 SD_list_MENU(u32 show_offset,	u32 file_select,u32 play_re )
 	}
 	else{
 		Launcher_CopyString(currentpath_temp, sizeof(currentpath_temp), currentpath);
-		if(!Recent_GetLoadedPathAt(play_re, game_total_SD, currentpath, sizeof(currentpath),
+		if(!Recent_GetLoadedPathAt(play_re, LAUNCHER_MAX_RECENTS, currentpath, sizeof(currentpath),
 			current_filename, sizeof(current_filename)))
 		{
 			Launcher_CopyString(currentpath, sizeof(currentpath), currentpath_temp);
@@ -15545,7 +15640,7 @@ if (is_EMU == 0xff)
 		res=f_chdir(currentpath);//can open  re list game
 		havecht = Check_cheat_file(pfilename);
 		if(!CheatSelectionAppliesTo(pfilename, havecht))
-			gl_cheat_selected_count = 0;
+			gl_cheat_selected_count = (gl_cheat_remember && havecht) ? CheatStateSavedCount(pfilename, havecht) : 0;
 		old_Save_num = Check_mde_file(pfilename);
 		Save_num	= old_Save_num;
 		MENU_max = 4+ ((gl_cheat_on==1)? ((havecht>0)?1:0):0) ;
@@ -15797,6 +15892,11 @@ load_file:
 				gl_rts_on 	= Read_SET_info(assress_v_rts);
 				gl_sleep_on = Read_SET_info(assress_v_sleep);
 				gl_cheat_on = Read_SET_info(assress_v_cheat);
+				if(gl_cheat_remember && (gl_cheat_on==1) && (havecht>0) && !CheatSelectionAppliesTo(pfilename, havecht))
+				{
+					CheatStateLoadHeadless(pfilename, havecht);
+					f_chdir(currentpath);
+				}
 				if((gl_reset_on==1) || (gl_rts_on==1) || (gl_sleep_on==1) || (gl_cheat_on==1))
 				{
 					if(gl_rts_on==1)

@@ -143,7 +143,7 @@ void Write(u32 romaddress, const u8* buffer, u32 size)
 		SetPSRampage(page);
 		
 		for(x=0;x<size/2;x++)
-			((vu16*)(PSRAMBase_S98 + Address))[x] = ((vu16*)buffer)[x];//todo ��Ҫ����psram page
+			((vu16*)(PSRAMBase_S98 + Address))[x] = ((vu16*)buffer)[x];//todo ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½psram page
 						
 		//DEBUG_printf("address{%x}:%x %x %x %x", romaddress,page,Address,size ,((vu32*)buffer)[0]);
 		SetPSRampage(0);
@@ -225,7 +225,7 @@ void IWRAM_CODE PatchInternal(u32* Data,int iSize,u32 offset)
     {
       case 0x3007FFC: // IRQ handler
         {
-          Add2(ii, 0x3007FF4);//0x3007FFC��λ��
+          Add2(ii, 0x3007FF4);//0x3007FFCï¿½ï¿½Î»ï¿½ï¿½
         }
         break;
       case 0x3FFFFFC: // IRQ handler
@@ -245,7 +245,7 @@ void SetTrimSize(u8* buffer,u32 romsize,u32 iSize,u32 mode,BYTE saveMODE)
   u32 alignedSize;
 
 	u32 PATCH_LENGTH;
-    if (gl_rts_on == 1 && gl_cheat_on == 0 && gl_reset_on == 0 && gl_sleep_on == 0)
+    if (0) /* RTS-only engine retired: RTS always uses the menu engine */
         PATCH_LENGTH = (u32)((u8*)RTS_only_ReplaceIRQ_end - (u8*)RTS_only_ReplaceIRQ_start);
     else if (gl_rts_on == 1 || gl_cheat_on == 1)
         PATCH_LENGTH = (u32)((u8*)RTS_ReplaceIRQ_end - (u8*)RTS_ReplaceIRQ_start)
@@ -358,7 +358,7 @@ void Patch_Reset_Sleep(u32 *Data)
   u32 Return_address_offset = p_patch_Return_address_L-p_patch_start;
 
   dmaCopy((void*)p_patch_start,patchbuffer, p_patch_end-p_patch_start);
-  *(vu32*)(patchbuffer+Return_address_offset) = Return_address;//�޸�gba_sleep_patch_bin����ķ��ص�ַ
+  *(vu32*)(patchbuffer+Return_address_offset) = Return_address;//ï¿½Þ¸ï¿½gba_sleep_patch_binï¿½ï¿½ï¿½ï¿½Ä·ï¿½ï¿½Øµï¿½Ö·
 
 	u16 read5 = Read_SET_info(assress_edit_sleephotkey_0); 
 	u16 read6 = Read_SET_info(assress_edit_sleephotkey_1); 
@@ -436,6 +436,7 @@ void Patch_RTS_Cheat(u32 *Data)
 	//rts switch
 	u32 rts_switch_offset = (u8*)RTS_switch - p_patch_start;
 	*(vu32*)(patchbuffer+rts_switch_offset) = gl_rts_on;
+	*(vu32*)(patchbuffer+((u8*)RTS_menu_min - p_patch_start)) = (gl_reset_on == 1) ? 0 : 1;
 
 	//cheat
 	u8*p_no_cheat_end =  (u8*)no_CHEAT_end;
@@ -443,7 +444,7 @@ void Patch_RTS_Cheat(u32 *Data)
 	u32 cheat_offset = (u8*)CHEAT - p_patch_start;
 	u32 output_count = 0;
 
-	for (u32 ii = 0; ii<gl_cheat_count && output_count<MAX_RUNTIME_CHEAT_RECORDS; ii++)
+	for (u32 ii = 0; gl_cheat_on == 1 && ii<gl_cheat_count && output_count<MAX_RUNTIME_CHEAT_RECORDS; ii++)
 	{
 		if (!IsRuntimeCheatRecordActive(ii))
 			continue;
@@ -604,7 +605,7 @@ void GBApatch_PSRAM(u32* address,int filesize)//Only once
 		ApplyActiveRomPatches(WritePSRAMRomByte, &rom_context,
 			rom_context.rom_size);
 	
-	if( (gl_rts_on==1) && (gl_cheat_on == 0)  && (gl_reset_on == 0)  && (gl_sleep_on == 0)  ) {
+	if(0) { /* RTS-only engine retired */
 		spend_address = 0; /* 13.7e1: CPU backup uses reserved SRAM, not game RAM. */
 		Patch_RTS_only(address);		
 	}
@@ -639,7 +640,7 @@ void GBApatch_NOR(u32* address,int filesize,u32 offset)
      * pointing to an absent/truncated runtime. */
     if (gl_rts_on == 1 || (gl_cheat_on == 1 && gl_cheat_count > 0)) {
         u32 bytes;
-        if (gl_rts_on == 1 && gl_cheat_on == 0 && gl_reset_on == 0 && gl_sleep_on == 0)
+        if (0) /* RTS-only engine retired: RTS always uses the menu engine */
             bytes=(u32)((u8*)RTS_only_ReplaceIRQ_end-(u8*)RTS_only_ReplaceIRQ_start);
         else
             bytes=(u32)((u8*)RTS_ReplaceIRQ_end-(u8*)RTS_ReplaceIRQ_start)
@@ -666,7 +667,7 @@ void GBApatch_NOR(u32* address,int filesize,u32 offset)
 	PatchNes(address);
 	AutoPatch_ApplyFixedWrites();
 
-	if( (gl_rts_on==1) && (gl_cheat_on == 0)  && (gl_reset_on == 0)  && (gl_sleep_on == 0)  ) {
+	if(0) { /* RTS-only engine retired */
 		Patch_RTS_only(address);		
 	}
 	else if((gl_rts_on==1) ||  ((gl_cheat_on==1)&& (gl_cheat_count>0) ) )		
