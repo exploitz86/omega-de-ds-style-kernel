@@ -8,6 +8,11 @@ endif
 
 include $(DEVKITARM)/gba_rules
 
+# Preserve the project root across the recursive make that runs inside build/obj.
+ifndef TOPDIR
+export TOPDIR := $(CURDIR)
+endif
+
 #---------------------------------------------------------------------------------
 # TARGET is the name of the output
 # BUILD is the directory where object files & intermediate files will be placed
@@ -20,8 +25,8 @@ include $(DEVKITARM)/gba_rules
 # the makefile is found
 #
 #---------------------------------------------------------------------------------
-TARGET		:= $(notdir $(CURDIR))
-BUILD		:= build
+TARGET		:= DS-Style-7.4c-Source1
+BUILD		:= build/obj
 SOURCES		:= source source/ff15
 INCLUDES	:= include source/ff15 images
 DATA		:=
@@ -32,18 +37,20 @@ MUSIC		:=
 #---------------------------------------------------------------------------------
 ARCH	:=	-mthumb -mthumb-interwork
 
-CFLAGS	:=	-g -Wall -O\
-		-mcpu=arm7tdmi -mtune=arm7tdmi\
- 		-fomit-frame-pointer\
+CFLAGS	:=	-g -Wall -Os \
+		-mcpu=arm7tdmi -mtune=arm7tdmi \
+		-fomit-frame-pointer \
 		-ffast-math \
+		-ffunction-sections \
+		-fdata-sections \
 		$(ARCH)
 
 CFLAGS	+=	$(INCLUDE)
 
 CXXFLAGS	:=	$(CFLAGS) -fno-rtti -fno-exceptions
 
-ASFLAGS	:=	-g $(ARCH)
-LDFLAGS	=	-g $(ARCH) -Wl,-Map,$(notdir $*.map)
+ASFLAGS	:=	-g $(ARCH) -I$(TOPDIR)/source
+LDFLAGS	=	-g $(ARCH) -Wl,-Map,$*.map -Wl,--gc-sections
 
 #---------------------------------------------------------------------------------
 # any extra libraries we wish to link with the project
@@ -63,10 +70,10 @@ LIBDIRS	:=	$(LIBGBA)
 #---------------------------------------------------------------------------------
 
 
-ifneq ($(BUILD),$(notdir $(CURDIR)))
+ifneq ($(notdir $(BUILD)),$(notdir $(CURDIR)))
 #---------------------------------------------------------------------------------
 
-export OUTPUT	:=	$(CURDIR)/$(TARGET)
+export OUTPUT	:=	$(CURDIR)/build/$(TARGET)
 
 export VPATH	:=	$(foreach dir,$(SOURCES),$(CURDIR)/$(dir)) \
 			$(foreach dir,$(DATA),$(CURDIR)/$(dir)) \
@@ -122,7 +129,7 @@ $(BUILD):
 #---------------------------------------------------------------------------------
 clean:
 	@echo clean ...
-	@rm -fr $(BUILD) $(TARGET).elf $(TARGET).gba
+	@rm -fr $(BUILD) build/$(TARGET).elf build/$(TARGET).gba build/$(TARGET).map
 
 
 #---------------------------------------------------------------------------------

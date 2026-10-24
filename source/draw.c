@@ -160,7 +160,7 @@ static void DrawThaiRows12(u16 *v, u16 x, u16 y, u16 c, const u8 *rows)
 	}
 }
 
-static u32 DecodeUtf8Text12(char *str, u32 l, u32 *hi, u8 c1, u32 *codepoint)
+static u32 DecodeUtf8Text12(const char *str, u32 l, u32 *hi, u8 c1, u32 *codepoint)
 {
 	u8 c2;
 	u8 c3;
@@ -190,7 +190,7 @@ static u32 DecodeUtf8Text12(char *str, u32 l, u32 *hi, u8 c1, u32 *codepoint)
 	return 0;
 }
 
-static u32 DecodeCp936LatinText12(char *str, u32 l, u32 *hi, u8 c1, u32 *codepoint)
+static u32 DecodeCp936LatinText12(const char *str, u32 l, u32 *hi, u8 c1, u32 *codepoint)
 {
 	u8 c2;
 
@@ -224,7 +224,7 @@ static u32 ThaiIsLeadingVowel(u32 codepoint)
 	return (codepoint >= 0x0E40u) && (codepoint <= 0x0E44u);
 }
 
-static u32 ThaiReadCodepointAt(char *str, u32 l, u32 *hi, u32 *codepoint)
+static u32 ThaiReadCodepointAt(const char *str, u32 l, u32 *hi, u32 *codepoint)
 {
 	u8 c1;
 
@@ -237,7 +237,7 @@ static u32 ThaiReadCodepointAt(char *str, u32 l, u32 *hi, u32 *codepoint)
 	return DecodeUtf8Text12(str, l, hi, c1, codepoint);
 }
 
-static void ThaiConsumeMarks(char *str, u32 l, u32 *hi)
+static void ThaiConsumeMarks(const char *str, u32 l, u32 *hi)
 {
 	while(*hi < l)
 	{
@@ -252,7 +252,7 @@ static void ThaiConsumeMarks(char *str, u32 l, u32 *hi)
 	}
 }
 
-static u32 ThaiConsumeVisibleCluster(char *str, u32 l, u32 *hi, u32 codepoint)
+static u32 ThaiConsumeVisibleCluster(const char *str, u32 l, u32 *hi, u32 codepoint)
 {
 	if(ThaiIsLeadingVowel(codepoint))
 	{
@@ -347,7 +347,7 @@ static int MapLatinGlyph12(u32 cp)
 	return -1;
 }
 
-u16 DrawText12VisibleLength(char *str)
+u16 DrawText12VisibleLength(const char *str)
 {
 	u32 l = strlen(str);
 	u32 hi = 0;
@@ -395,7 +395,7 @@ u16 DrawText12VisibleLength(char *str)
 	return shown;
 }
 
-u16 DrawText12ByteOffsetForGlyphs(char *str, u16 glyphs)
+u16 DrawText12ByteOffsetForGlyphs(const char *str, u16 glyphs)
 {
 	u32 l = strlen(str);
 	u32 hi = 0;
@@ -443,7 +443,7 @@ u16 DrawText12ByteOffsetForGlyphs(char *str, u16 glyphs)
 	return hi;
 }
 
-void DrawText12CopyVisible(char *dst, u16 dst_size, char *src, u16 glyphs)
+void DrawText12CopyVisible(char *dst, u16 dst_size, const char *src, u16 glyphs)
 {
 	u16 offset;
 
@@ -457,7 +457,7 @@ void DrawText12CopyVisible(char *dst, u16 dst_size, char *src, u16 glyphs)
 	dst[offset] = 0;
 }
 
-static void DrawHZText12Surface(char *str, u16 len, u16 x, u16 y, u16 c, u16 *v)
+static void DrawHZText12Surface(const char *str, u16 len, u16 x, u16 y, u16 c, u16 *v)
 {
   u32 i,l,hi=0,shown=0;
   u32 location;
@@ -603,12 +603,12 @@ static void DrawHZText12Surface(char *str, u16 len, u16 x, u16 y, u16 c, u16 *v)
 	}
 }
 
-void DrawHZText12(char *str, u16 len, u16 x, u16 y, u16 c, u8 isDrawDirect)
+void DrawHZText12(const char *str, u16 len, u16 x, u16 y, u16 c, u8 isDrawDirect)
 {
 	DrawHZText12Surface(str, len, x, y, c, isDrawDirect ? VideoBuffer : Vcache);
 }
 
-void DrawHZText12ToBuffer(char *str, u16 len, u16 x, u16 y, u16 c, u16 *buffer)
+void DrawHZText12ToBuffer(const char *str, u16 len, u16 x, u16 y, u16 c, u16 *buffer)
 {
 	if(buffer)
 		DrawHZText12Surface(str, len, x, y, c, buffer);
@@ -620,7 +620,7 @@ void DEBUG_printf(const char *format, ...)
     va_list va;
     va_start(va, format);
     //vasprintf(str, format, va);
-    vsprintf(str, format, va);
+    vsnprintf(str, sizeof(str), format, va);
     va_end(va);
 
 		if(current_y==1)
@@ -641,7 +641,7 @@ void DEBUG_printf(const char *format, ...)
     }
 }
 //---------------------------------------------------------------------------------
-void ShowbootProgress(char *str)
+void ShowbootProgress(const char *str)
 {
     u16 str_glyphs = DrawText12VisibleLength(str);
     Clear(0,160-15,240,15,gl_color_cheat_black,1);
