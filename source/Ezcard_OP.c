@@ -259,7 +259,8 @@ void IWRAM_CODE Send_FATbuffer(u32*buffer,u32 mode)
 // --------------------------------------------------------------------
 extern u16 gl_ingame_RTC_open_status;
 
-void IWRAM_CODE SetRompageWithHardReset(u16 page,u32 bootmode)
+void IWRAM_CODE __attribute__((optimize("no-jump-tables", "no-tree-loop-distribute-patterns")))
+SetRompageWithHardReset(u16 page,u32 bootmode)
 {
 	Set_RTC_status(gl_ingame_RTC_open_status);
 	SetRompage(page);
