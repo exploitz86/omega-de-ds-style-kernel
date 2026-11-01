@@ -22,7 +22,7 @@ extern unsigned char ASC_DATA_OLD[];
 
 extern u32 FAT_table_buffer[FAT_table_size/4]EWRAM_BSS;
 
-extern u32 key_L;
+extern u8 key_L;
 
 extern FIL gfile;
 // --------------------------------------------------------------------

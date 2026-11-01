@@ -144,6 +144,9 @@
 #ifndef DSTEXT_SETTINGS_BACKUP_SAVES
 #define DSTEXT_SETTINGS_BACKUP_SAVES "Backup saves"
 #endif
+#ifndef DSTEXT_SETTINGS_REMEMBER_CHEATS
+#define DSTEXT_SETTINGS_REMEMBER_CHEATS "Remember cheats"
+#endif
 #ifndef DSTEXT_SETTINGS_LED
 #define DSTEXT_SETTINGS_LED "LED settings"
 #endif

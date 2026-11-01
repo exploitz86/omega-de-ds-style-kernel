@@ -41,6 +41,7 @@ typedef enum {
     LTXT_SETTINGS_INGAME_RTC,
     LTXT_SETTINGS_ENABLE_BIOS,
     LTXT_SETTINGS_BACKUP_SAVES,
+    LTXT_SETTINGS_REMEMBER_CHEATS,
     LTXT_SETTINGS_HELP,
     LTXT_CATEGORY_INTERFACE,
     LTXT_CATEGORY_GAMES,
@@ -198,6 +199,7 @@ static const LauncherLanguagePack launcher_language_packs[] = {
         "In-game RTC",
         "Enable BIOS",
         "Backup saves",
+        "Remember cheats",
         "Help",
         "Interface",
         "Games",
@@ -352,6 +354,7 @@ static const LauncherLanguagePack launcher_language_packs[] = {
         "In-game RTC",
         "Enable BIOS",
         "Backup saves",
+        "Remember cheats",
         "Help",
         "Interface",
         "Games",
@@ -506,6 +509,7 @@ static const LauncherLanguagePack launcher_language_packs[] = {
         "RTC en juego",
         "Activar BIOS",
         "Copia saves",
+        "Recordar trucos",
         "Ayuda",
         "Interfaz",
         "Juegos",
@@ -660,6 +664,7 @@ static const LauncherLanguagePack launcher_language_packs[] = {
         "RTC en jeu",
         "Activer BIOS",
         "Copie saves",
+        "Retenir cheats",
         "Aide",
         "Interface",
         "Jeux",
@@ -814,6 +819,7 @@ static const LauncherLanguagePack launcher_language_packs[] = {
         "RTC no jogo",
         "Ativar BIOS",
         "Copiar saves",
+        "Lembrar cheats",
         "Ajuda",
         "Interface",
         "Jogos",
@@ -968,6 +974,7 @@ static const LauncherLanguagePack launcher_language_packs[] = {
         "RTC im Spiel",
         "BIOS an",
         "Saves sichern",
+        "Cheats merken",
         "Hilfe",
         "Oberflache",
         "Spiele",
@@ -1122,6 +1129,7 @@ static const LauncherLanguagePack launcher_language_packs[] = {
         "Oyun ici RTC",
         "BIOS ac",
         "Kay\304\261t yedegi",
+        "Hileleri hat\304\261rla",
         "Yard\304\261m",
         "Arayuz",
         "Oyunlar",
@@ -1276,6 +1284,7 @@ static const LauncherLanguagePack launcher_language_packs[] = {
         "RTC in gioco",
         "Abilita BIOS",
         "Backup saves",
+        "Ricorda cheat",
         "Aiuto",
         "Interfaccia",
         "Giochi",
@@ -1430,6 +1439,7 @@ static const LauncherLanguagePack launcher_language_packs[] = {
         "RTC in spel",
         "BIOS aan",
         "Save backup",
+        "Cheats onthouden",
         "Help",
         "Interface",
         "Games",
@@ -1584,6 +1594,7 @@ static const LauncherLanguagePack launcher_language_packs[] = {
         "RTC i spel",
         "BIOS p\303\245",
         "Backup saves",
+        "Spara cheats",
         "Hj\303\244lp",
         "Granssnitt",
         "Spel",
@@ -1738,6 +1749,7 @@ static const LauncherLanguagePack launcher_language_packs[] = {
         "RTC peliss\303\244",
         "BIOS p\303\244\303\244lle",
         "Backup saves",
+        "Muista cheatit",
         "Ohje",
         "Liittyma",
         "Pelit",
@@ -1892,6 +1904,7 @@ static const LauncherLanguagePack launcher_language_packs[] = {
         "\323\316\317\267\312\261\326\323",
         "\306\364\323\303BIOS",
         "\261\270\267\335\264\346\265\265",
+        "\274\307\327\241\275\360\312\326\326\270",
         "\260\357\326\372",
         "\275\347\303\346",
         "\323\316\317\267",
@@ -2046,6 +2059,7 @@ static const LauncherLanguagePack launcher_language_packs[] = {
         "\340\270\231\340\270\262\340\270\254\340\270\264\340\270\201\340\270\262\340\271\203\340\270\231\340\271\200\340\270\201\340\270\241",
         "\340\271\200\340\270\233\340\270\264\340\270\224 BIOS",
         "\340\270\252\340\270\263\340\270\243\340\270\255\340\270\207\340\270\202\340\271\211\340\270\255\340\270\241\340\270\271\340\270\245",
+        "Remember cheats",
         "\340\270\212\340\271\210\340\270\247\340\270\242\340\271\200\340\270\253\340\270\245\340\270\267\340\270\255",
         "\340\270\255\340\270\264\340\270\231\340\271\200\340\270\227\340\270\255\340\270\243\340\271\214\340\271\200\340\270\237\340\270\213",
         "\340\271\200\340\270\201\340\270\241",
@@ -2201,6 +2215,7 @@ static const LauncherLanguagePack launcher_language_packs[] = {
 #undef DSTEXT_SETTINGS_INGAME_RTC
 #undef DSTEXT_SETTINGS_ENABLE_BIOS
 #undef DSTEXT_SETTINGS_BACKUP_SAVES
+#undef DSTEXT_SETTINGS_REMEMBER_CHEATS
 #undef DSTEXT_SETTINGS_HELP
 #undef DSTEXT_CATEGORY_INTERFACE
 #undef DSTEXT_CATEGORY_GAMES
@@ -2353,6 +2368,7 @@ static const LauncherLanguagePack launcher_language_packs[] = {
 #define DSTEXT_SETTINGS_INGAME_RTC Launcher_Text(LTXT_SETTINGS_INGAME_RTC)
 #define DSTEXT_SETTINGS_ENABLE_BIOS Launcher_Text(LTXT_SETTINGS_ENABLE_BIOS)
 #define DSTEXT_SETTINGS_BACKUP_SAVES Launcher_Text(LTXT_SETTINGS_BACKUP_SAVES)
+#define DSTEXT_SETTINGS_REMEMBER_CHEATS Launcher_Text(LTXT_SETTINGS_REMEMBER_CHEATS)
 #define DSTEXT_SETTINGS_HELP Launcher_Text(LTXT_SETTINGS_HELP)
 #define DSTEXT_CATEGORY_INTERFACE Launcher_Text(LTXT_CATEGORY_INTERFACE)
 #define DSTEXT_CATEGORY_GAMES Launcher_Text(LTXT_CATEGORY_GAMES)

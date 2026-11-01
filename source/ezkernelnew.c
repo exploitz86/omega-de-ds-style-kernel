@@ -9799,7 +9799,7 @@ static void Launcher_SettingsGetLine(u32 item, char *out, u32 out_size)
         case SETTINGS_ADDON_HOTKEY: label = DSTEXT_SETTINGS_ADDON_HOTKEY; value = ">"; break;
         case SETTINGS_FULL_INTRO: label = DSTEXT_SETTINGS_ENABLE_BIOS; value = Launcher_OnOffText(gl_toggle_reset); break;
         case SETTINGS_BACKUP_SAVES: label = DSTEXT_SETTINGS_BACKUP_SAVES; value = Launcher_OnOffText(gl_toggle_backup); break;
-		case SETTINGS_REMEMBER_CHEATS: label = "Remember cheats"; value = Launcher_OnOffText(gl_cheat_remember); break;
+		case SETTINGS_REMEMBER_CHEATS: label = DSTEXT_SETTINGS_REMEMBER_CHEATS; value = Launcher_OnOffText(gl_cheat_remember); break;
         case SETTINGS_LED_SETTINGS: label = DSTEXT_SETTINGS_LED; value = ">"; break;
         case SETTINGS_HELP: label = DSTEXT_SETTINGS_HELP; value = ">"; break;
         default: break;
