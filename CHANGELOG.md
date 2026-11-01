@@ -18,6 +18,16 @@ Changes made on top of the original DS Style 7.4c source (EZ-Flash Omega Definit
   - Fixed the script and regenerated the header and image headers.
 - **Colour picker popup**
   - Pressing A on Settings > Colour opens a list of all 16 colours (`Launcher_ThemePickerPopup`).
+- **Cheat group collapse** (`source\showcht.c`)
+  - Collapsing a group left the old cheat rows on screen (they appeared to move to the bottom) because only the visible rows were redrawn, and the scroll position was not corrected for the shorter list.
+  - `Show_KEY_val` now redraws all 10 rows, clearing unused ones, and the new `ClampCheatViewport` corrects the cursor and scroll offset after collapse or expand.
+- **Enable BIOS from the start screen** (`source\Ezcard_OP.c`)
+  - `key_L` was declared `u32` in `Ezcard_OP.c` but is a `u8` in `ezkernelnew.c`, so the neighbouring `gl_clock_dirty` flag was read as part of it. Launching from the start screen forced a soft reset and skipped the BIOS logo. It is now declared `u8`.
+- **Remember cheats label** – now uses the multi-language system (`DSTEXT_SETTINGS_REMEMBER_CHEATS`) in all language packs and `launcher_text_languages.json`. The Thai entry uses the English text.
+- **Build script** (`Build-DS-Style-Enhanced.cmd`) – asks whether to rebuild the image headers instead of always doing so.
+- **Latest devkitPro (GCC 16.1) with Enable BIOS on** (`source\Ezcard_OP.c`)
+  - `SetRompageWithHardReset` runs after the game ROM is mapped, so it must not call code stored in ROM. The new compiler used a jump-table helper from libgcc and `memset` calls, both in ROM, which crashed.
+  - The function is now built with `no-jump-tables` and `no-tree-loop-distribute-patterns`. The `bootmode 4` path still calls `LZ77UnCompWram`.
 
 ## 3. Cheat selection memory (user enhancement)
 
@@ -50,7 +60,11 @@ Changes made on top of the original DS Style 7.4c source (EZ-Flash Omega Definit
 - `Grit\Build Skin Files.ps1`
 - `source\ezkernelnew.c`
 - `source\showcht.c`
-- `source\GBApatch.c`
+- `source\Ezcard_OP.c`
+- `source\launcher_text.h`
+- `source\launcher_runtime_text.h`
+- `source\launcher_text_languages.json`
+- `Build-DS-Style-Enhanced.cmd`- `source\GBApatch.c`
 - `source\GBApatch.h`
 - `source\gba_rts_patch.s`
 - `source\rts3_identity.c`
