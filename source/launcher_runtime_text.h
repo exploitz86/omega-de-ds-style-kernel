@@ -30,6 +30,7 @@ typedef enum {
     LTXT_SETTINGS_HIDE_SYSTEM,
     LTXT_SETTINGS_LIST_FOLDERS,
     LTXT_SETTINGS_CLEAN_LIST,
+    LTXT_SETTINGS_WRAP_AROUND,
     LTXT_SETTINGS_BOOT_TO,
     LTXT_SETTINGS_BOOT_ENGINE,
     LTXT_SETTINGS_AUTO_SAVE,
@@ -188,6 +189,7 @@ static const LauncherLanguagePack launcher_language_packs[] = {
         "Hide system",
         "List folders",
         "Clean list",
+        "Wrap list",
         "Boot to",
         "Boot engine",
         "Auto save",
@@ -343,6 +345,7 @@ static const LauncherLanguagePack launcher_language_packs[] = {
         "Hide system",
         "List folders",
         "Clean list",
+        "Wrap list",
         "Boot to",
         "Boot engine",
         "Auto save",
@@ -498,6 +501,7 @@ static const LauncherLanguagePack launcher_language_packs[] = {
         "Ocultar sist.",
         "Lista carpetas",
         "Lista limpia",
+        "Lista circular",
         "Iniciar en",
         "Motor inicio",
         "Guardado auto",
@@ -653,6 +657,7 @@ static const LauncherLanguagePack launcher_language_packs[] = {
         "Masquer syst.",
         "Liste dossiers",
         "Liste claire",
+        "Liste cyclique",
         "Demarrer sur",
         "Moteur",
         "Save auto",
@@ -808,6 +813,7 @@ static const LauncherLanguagePack launcher_language_packs[] = {
         "Ocultar sist.",
         "Listar pastas",
         "Lista limpa",
+        "Lista circular",
         "Iniciar em",
         "Motor inicio",
         "Guardar auto",
@@ -963,6 +969,7 @@ static const LauncherLanguagePack launcher_language_packs[] = {
         "System ausbl.",
         "Ordnerliste",
         "Klare Liste",
+        "Liste im Kreis",
         "Start mit",
         "Start-Engine",
         "Auto speichern",
@@ -1118,6 +1125,7 @@ static const LauncherLanguagePack launcher_language_packs[] = {
         "Sistemi gizle",
         "Klasor liste",
         "Temiz liste",
+        "D\303\266ng\303\274l\303\274 liste",
         "Acilis",
         "Ba\305\237lat motoru",
         "Otomatik kay\304\261t",
@@ -1273,6 +1281,7 @@ static const LauncherLanguagePack launcher_language_packs[] = {
         "Nascondi sist.",
         "Lista cartelle",
         "Lista pulita",
+        "Lista ciclica",
         "Avvia su",
         "Motore avvio",
         "Auto salva",
@@ -1428,6 +1437,7 @@ static const LauncherLanguagePack launcher_language_packs[] = {
         "Systeem weg",
         "Mappenlijst",
         "Schone lijst",
+        "Lijst herhalen",
         "Start naar",
         "Start-engine",
         "Auto opslaan",
@@ -1583,6 +1593,7 @@ static const LauncherLanguagePack launcher_language_packs[] = {
         "Dolj system",
         "Lista mappar",
         "Ren lista",
+        "Rulla runt",
         "Starta till",
         "Startmotor",
         "Autospara",
@@ -1738,6 +1749,7 @@ static const LauncherLanguagePack launcher_language_packs[] = {
         "Piilota syst.",
         "Kansiolista",
         "Siisti lista",
+        "Kierto",
         "Kaynnista",
         "K\303\244ynnistin",
         "Autosave",
@@ -1893,6 +1905,7 @@ static const LauncherLanguagePack launcher_language_packs[] = {
         "\322\376\262\330\317\265\315\263",
         "\316\304\274\376\274\320\301\320\261\355",
         "\307\345\313\254\301\320\261\355",
+        "\321\255\273\267\301\320\261\355",
         "\306\364\266\257\265\275",
         "\306\364\266\257\322\375\307\346",
         "\327\324\266\257\261\243\264\346",
@@ -2048,6 +2061,7 @@ static const LauncherLanguagePack launcher_language_packs[] = {
         "\340\270\213\340\271\210\340\270\255\340\270\231\340\271\204\340\270\237\340\270\245\340\271\214\340\270\243\340\270\260\340\270\232\340\270\232",
         "\340\270\243\340\270\262\340\270\242\340\270\201\340\270\262\340\270\243\340\271\202\340\270\237\340\270\245\340\271\200\340\270\224\340\270\255\340\270\243\340\271\214",
         "Clean list",
+        "Wrap list",
         "\340\271\200\340\270\233\340\270\264\340\270\224\340\271\204\340\270\233\340\270\227\340\270\265\340\271\210",
         "\340\270\243\340\270\271\340\270\233\340\271\201\340\270\232\340\270\232\340\270\201\340\270\262\340\270\243\340\270\232\340\270\271\340\270\225",
         "\340\271\200\340\270\213\340\270\237\340\270\255\340\270\261\340\270\225\340\271\202\340\270\231\340\270\241\340\270\261\340\270\225\340\270\264",
@@ -2204,6 +2218,7 @@ static const LauncherLanguagePack launcher_language_packs[] = {
 #undef DSTEXT_SETTINGS_HIDE_SYSTEM
 #undef DSTEXT_SETTINGS_LIST_FOLDERS
 #undef DSTEXT_SETTINGS_CLEAN_LIST
+#undef DSTEXT_SETTINGS_WRAP_AROUND
 #undef DSTEXT_SETTINGS_BOOT_TO
 #undef DSTEXT_SETTINGS_BOOT_ENGINE
 #undef DSTEXT_SETTINGS_AUTO_SAVE
@@ -2357,6 +2372,7 @@ static const LauncherLanguagePack launcher_language_packs[] = {
 #define DSTEXT_SETTINGS_HIDE_SYSTEM Launcher_Text(LTXT_SETTINGS_HIDE_SYSTEM)
 #define DSTEXT_SETTINGS_LIST_FOLDERS Launcher_Text(LTXT_SETTINGS_LIST_FOLDERS)
 #define DSTEXT_SETTINGS_CLEAN_LIST Launcher_Text(LTXT_SETTINGS_CLEAN_LIST)
+#define DSTEXT_SETTINGS_WRAP_AROUND Launcher_Text(LTXT_SETTINGS_WRAP_AROUND)
 #define DSTEXT_SETTINGS_BOOT_TO Launcher_Text(LTXT_SETTINGS_BOOT_TO)
 #define DSTEXT_SETTINGS_BOOT_ENGINE Launcher_Text(LTXT_SETTINGS_BOOT_ENGINE)
 #define DSTEXT_SETTINGS_AUTO_SAVE Launcher_Text(LTXT_SETTINGS_AUTO_SAVE)

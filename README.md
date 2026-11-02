@@ -19,7 +19,38 @@ The launcher displays **DS Style 7.4 Enhanced** on screen. GBA savestates use th
 
 ## Build
 
-On Windows with the existing devkitARM toolchain installed, run:
+Read the complete [DS Style User Guide](https://frankiet19.github.io/omega-de-ds-style-kernel/) for installation, everyday use, artwork, customisation and troubleshooting.
+
+## Web
+
+- [DS Style homepage](https://frankiet19.github.io/omega-de-ds-style-kernel/project/)
+- [DS Style Manager](https://frankiet19.github.io/omega-de-ds-style-kernel/manager/) - guided installation, preferences, artwork and styles
+
+## Features
+
+- DS-style launcher interface
+- Multiple colour themes and light/dark presentation support
+- Customisable launcher assets through DS Style Customiser
+- List, List + Art, horizontal carousel, and vertical carousel file views
+- Title and box-art thumbnail modes
+- Favourite and recent game support
+- Multi-language launcher text, including Chinese and Thai
+- Bundled text and Markdown viewer with light and dark modes
+- Optional folder artwork for supported emulated systems
+- UI sounds
+- Smooth carousel animations enabled by default, adjustable side-preview sizes and a launch pulse
+- Optional browser wrapping and defensive save-file checks
+- Runtime settings stored in readable `SYSTEM/SETTINGS.TXT`
+
+## Building
+
+Install devkitPro/devkitARM, then run:
+
+```bat
+build.bat
+```
+
+The build script outputs:
 
 ```text
 Build-DS-Style-Enhanced.cmd
@@ -51,17 +82,13 @@ The files directly under `SD-Card-Addons/SYSTEM/PATCHES/` document and verify th
 
 GBA savestates use RTS3. The source includes the current RTS3 inspector and maintenance tools under `tools/`.
 
-```text
-python tools/inspect_rts3.py "Game.rts"
-```
-
-## Documentation
-
-The user guide is:
-
-```text
-docs/DS Style User Guide.pdf
-```
+- Original kernel source by EZ-FLASH
+- SimpleLight custom kernel by Sterophonick
+- DS Style custom kernel by FrankieT19
+- Contributions by Merkin
+- Thai language support by aidiadayo
+- Case-sensitive `HZK12.h` include fix by Kekun
+- FatFs by ChaN, as used by the upstream kernel
 
 ## License
 
