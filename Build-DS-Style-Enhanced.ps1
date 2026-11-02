@@ -59,7 +59,7 @@ Reject 'source\gba_rts_patch.s' 'cheat_write32:' 'obsolete separate W32 handler'
 
 Need 'source\ff15\ffconf.h' 'FF_PRINT_LLI' 'FatFs formatter configuration'
 Need 'source\ff15\ffconf.h' 'FF_PRINT_FLOAT' 'FatFs formatter configuration'
-Need 'source\ezkernelnew.c' '#define LAUNCHER_LIST_ART_CACHE_COUNT 2' 'two-slot List + Art cache'
+Need 'source\ezkernelnew.c' '#define LAUNCHER_LIST_ART_CACHE_COUNT 3' 'three-slot List + Art cache'
 Need 'source\ezkernelnew.c' '#define launcher_start_preview_cache launcher_thumbnail_workspace.start_preview' 'shared Start preview workspace'
 Need 'source\ezkernelnew.c' 'launcher_custom_thumb_manifest_hash[LAUNCHER_CUSTOM_THUMB_MANIFEST_MAX]' 'single active manifest table'
 Need 'source\ezkernelnew.c' 'Launcher_DrawThemeTopbarClip' 'compact top-bar renderer'
@@ -175,7 +175,6 @@ Reject 'source\setwindow2.c' 'char msg[128];' 'unused settings text buffer'
 Need 'source\setwindow.c' 'static const char *const launcher_key_names[10]' 'shared settings key-name table'
 Need 'source\setwindow.c' 'Launcher_KeyName(edit_rtshotkey[0], K_L)' 'shared hotkey label resolver'
 Reject 'source\ezkernelnew.c' 'launcher_list_art_idle_frames' 'obsolete zero-delay list-art idle state'
-Reject 'source\ezkernelnew.c' 'LAUNCHER_LIST_ART_IDLE_LOAD_FRAMES' 'obsolete zero-delay list-art constant'
 Need 'source\ezkernelnew.c' 'Launcher_CopyString(recents_return_path, sizeof(recents_return_path)' 'bounded Recent return-path copy'
 
 

@@ -745,7 +745,7 @@ typedef union
 	u16 start_preview[LAUNCHER_START_PREVIEW_CACHE_COUNT][LAUNCHER_START_THUMB_W * LAUNCHER_START_THUMB_H];
 } LauncherThumbnailRenderWorkspace;
 
-static LauncherThumbnailRenderWorkspace launcher_thumbnail_workspace EWRAM_BSS;
+static LauncherThumbnailRenderWorkspace launcher_thumbnail_workspace EWRAM_BSS __attribute__((aligned(4)));
 #define launcher_start_preview_cache launcher_thumbnail_workspace.start_preview
 static u8 launcher_thumbnail_workspace_mode = 0xFF;
 #define launcher_side_preview_left launcher_thumbnail_workspace.horizontal.left
@@ -869,6 +869,9 @@ typedef enum
 	LAUNCHER_SETTING_THUMBNAILS,
 	LAUNCHER_SETTING_VERTICAL_SIDE,
 	LAUNCHER_SETTING_VIEW_MODE,
+	LAUNCHER_SETTING_WRAP_LIST,
+	LAUNCHER_SETTING_ANIMATIONS,
+	LAUNCHER_SETTING_SIDE_SIZE,
 	LAUNCHER_SETTING_COUNT
 } LauncherSettingId;
 
@@ -895,7 +898,10 @@ static const char *const launcher_setting_keys[LAUNCHER_SETTING_COUNT] =
 	"Theme",
 	"Thumbnails",
 	"Vertical side",
-	"View mode"
+	"View mode",
+	"Wrap list",
+	"Animations",
+	"Side size"
 };
 
 static char launcher_setting_values[LAUNCHER_SETTING_COUNT][LAUNCHER_SETTINGS_VALUE_LEN]EWRAM_BSS;
@@ -9592,7 +9598,7 @@ static void Launcher_ReadWrapAroundSetting(void)
 
     launcher_wrap_around = 0;
     memset(buf, 0, sizeof(buf));
-    if(Launcher_SettingsReadValue("Wrap list", buf, sizeof(buf)))
+    if(Launcher_SettingsReadValue(LAUNCHER_SETTING_WRAP_LIST, buf, sizeof(buf)))
     {
         if(!strcasecmp(buf, "On") || !strcasecmp(buf, "Yes") ||
            !strcasecmp(buf, DSTEXT_ON) || (buf[0] == '1'))
@@ -9607,9 +9613,9 @@ static void Launcher_ReadMotionSettings(void)
     char value[32];
     launcher_carousel_animations = 1;
     launcher_carousel_equal_sides = 0;
-    if(Launcher_SettingsReadValue("Animations", value, sizeof(value)))
+    if(Launcher_SettingsReadValue(LAUNCHER_SETTING_ANIMATIONS, value, sizeof(value)))
         launcher_carousel_animations = !strcasecmp(value, "On") || !strcmp(value, "1");
-    if(Launcher_SettingsReadValue("Side size", value, sizeof(value)))
+    if(Launcher_SettingsReadValue(LAUNCHER_SETTING_SIDE_SIZE, value, sizeof(value)))
         launcher_carousel_equal_sides = !strcasecmp(value, "Equal");
 }
 
