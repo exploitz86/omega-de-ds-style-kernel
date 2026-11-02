@@ -1,8 +1,8 @@
-# Enhancement and Change Log for 7.4 Enhanced
+# Enhancement and Change Log for Enhanced 7.5
 
-Changes made on top of the original DS Style 7.4c source (EZ-Flash Omega Definitive Edition).
+Changes in the upstream DS Style 7.5 release, followed by the changes this fork (Enhanced) makes on top of it (EZ-Flash Omega Definitive Edition).
 
-## DS Style v7.5
+## DS Style v7.5 (upstream)
 
 - Added smooth carousel animations, enabled by default, with small or equal-size side previews and an option to turn animations off.
 - Added a selection pulse before directly launching from an animated carousel.
@@ -12,15 +12,15 @@ Changes made on top of the original DS Style 7.4c source (EZ-Flash Omega Definit
 - Added defensive save and real-time-save file checks so incomplete SD-card reads or writes are reported instead of being treated as successful.
 - Improved SD-card error handling, cheat-file bounds checking, and filename/path validation.
 
-## DS Style v7.4
+## Enhanced fork changes
 
-## 1. Build system
+### 1. Build system
 
 - **Assembler include path** – GCC's `-I` does not reach GNU `as`, so `.include "gba_rts3_defs.inc"` failed.
   - `Build-RTS-Assembly-Preflight.ps1`: added `-Xassembler -I -Xassembler <source dir>`.
   - `Makefile`: `ASFLAGS` now includes `-I$(TOPDIR)/source -Xassembler -I -Xassembler $(TOPDIR)/source`.
 
-## 2. Launcher fixes
+### 2. Launcher fixes
 
 - **Last Played tile** (`source\ezkernelnew.c`, `SD_list_MENU`)
   - A/Start did not always open the Clean/Add-on boot popup.
@@ -41,13 +41,13 @@ Changes made on top of the original DS Style 7.4c source (EZ-Flash Omega Definit
   - `SetRompageWithHardReset` runs after the game ROM is mapped, so it must not call code stored in ROM. The new compiler used a jump-table helper from libgcc and `memset` calls, both in ROM, which crashed.
   - The function is now built with `no-jump-tables` and `no-tree-loop-distribute-patterns`. The `bootmode 4` path still calls `LZ77UnCompWram`.
 
-## 3. Cheat selection memory (user enhancement)
+### 3. Cheat selection memory (user enhancement)
 
 - **Remember cheat state option** – can be turned on or off in the Game menu in Settings.
 - **Cheats on by default** – if cheats are selected when starting a game, they are turned on automatically. There is no need to open the add-on menu and enable them.
 - `source\showcht.c`: per-game cheat selection is saved to `/SYSTEM/CHEATSTATE/<hash>.cst` and restored.
 
-## 4. RTS / savestates
+### 4. RTS / savestates
 
 - **Savestates independent of cheats** (`source\rts3_identity.c`)
   - The savestate header included a CRC and size of the injected runtime, which changes with cheats, hotkeys and engine variant.
@@ -59,13 +59,13 @@ Changes made on top of the original DS Style 7.4c source (EZ-Flash Omega Definit
   - With no active cheats the menu lists SAVE and LOAD only. Cheat ON/OFF entries appear only when cheats are active.
   - The runtime cheat list is built only when Cheats is on.
 
-## 5. Compatibility notes
+### 5. Compatibility notes
 
 - Savestates made by the original kernel, or by earlier builds of this one, are rejected. The format changed, and the RTS-only format tag `EZRTSO03` is no longer used.
 - Normal in-game save files are unaffected.
 - Avoid switching between this kernel and the original on the same SD card for savestates.
 
-## 6. Files modified
+### 6. Files modified
 
 - `Makefile`
 - `Build-RTS-Assembly-Preflight.ps1`
@@ -76,19 +76,10 @@ Changes made on top of the original DS Style 7.4c source (EZ-Flash Omega Definit
 - `source\launcher_text.h`
 - `source\launcher_runtime_text.h`
 - `source\launcher_text_languages.json`
-- `Build-DS-Style-Enhanced.cmd`- `source\GBApatch.c`
+- `Build-DS-Style-Enhanced.cmd`
+- `Build-DS-Style-Enhanced.ps1`
+- `source\GBApatch.c`
 - `source\GBApatch.h`
 - `source\gba_rts_patch.s`
 - `source\rts3_identity.c`
 - `source\launcher_topbar_patterns.h`
-
-## DS Style 7.4c
-
-Initial source release.
-
-- DS Style 7.4c launcher branding.
-- External GBA compatibility database under `SYSTEM/PATCHES/GBA/`.
-- Addon and cheat support.
-- RTS3 GBA savestate core and RTS3 inspection/maintenance tools.
-- Windows/devkitARM build helpers.
-- Complete Grit image pipeline: verifies all 99 PNG/BMP-backed image headers against the known-good arrays, then regenerates the headers before the kernel build.
