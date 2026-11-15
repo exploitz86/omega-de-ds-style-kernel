@@ -2352,12 +2352,6 @@ static u32 Launcher_ListArtSpanCacheGet(int screen_y, const u8 **starts, const u
 	return launcher_list_art_span_count[row];
 }
 
-static u32 Launcher_ListArtSpanCountAtY(int screen_y)
-{
-	int row = Launcher_ListArtSpanCacheIndex(screen_y);
-	return (row < 0) ? 0 : launcher_list_art_span_count[row];
-}
-
 static u32 Launcher_ShowListMetaForRow(u32 haveThumbnail, u32 line, u32 selected)
 {
 	if(launcher_clean_list)
@@ -2892,101 +2886,6 @@ static void Launcher_CopyCachedListRowAroundArt(u32 line, u32 protect_art)
 		return;
 	}
 	Launcher_CopyCachedListRow(line);
-}
-
-/* Scroll one scanline while treating the artwork as a fixed overlay. Pixels
-   covered by the new artwork are left alone; pixels sourced from beneath the
-   old artwork come from the logical row cache instead of stale VRAM. */
-static void Launcher_CopyListArtScrollLine(int dest_y, int source_y,
-	u32 old_has_art, u32 new_has_art)
-{
-	u32 dest_count = 0;
-	u32 source_count = 0;
-	u32 dest_span = 0;
-	u32 source_span = 0;
-	u32 x = 0;
-	const u8 *dest_start = 0;
-	const u8 *dest_end = 0;
-	const u8 *source_start = 0;
-	const u8 *source_end = 0;
-	u16 *cached_line;
-	u32 row_line;
-	u32 row_y;
-
-	if(dest_y < 20 || dest_y >= 160 || source_y < 20 || source_y >= 160)
-		return;
-
-	row_line = (u32)(dest_y - 20) / LAUNCHER_LIST_ROW_HEIGHT;
-	row_y = (u32)(dest_y - 20) % LAUNCHER_LIST_ROW_HEIGHT;
-	cached_line = Launcher_ListRowCacheLine(row_line);
-	if(!cached_line)
-		return;
-	cached_line += row_y * 240;
-
-	if(new_has_art)
-		dest_count = Launcher_ListArtSpanCacheGet(dest_y, &dest_start, &dest_end);
-	if(old_has_art)
-		source_count = Launcher_ListArtSpanCacheGet(source_y, &source_start, &source_end);
-	if(dest_count == 0 && source_count == 0)
-	{
-		Launcher_DmaCopyAligned32(VideoBuffer + source_y * 240,
-		VideoBuffer + dest_y * 240, 240 * 2);
-		return;
-	}
-
-	while(x < 240)
-	{
-		u32 dest_active;
-		u32 source_active;
-		u32 next = 240;
-
-		while(dest_span < dest_count &&
-		dest_end[dest_span] <= x)
-			dest_span++;
-		while(source_span < source_count &&
-		source_end[source_span] <= x)
-			source_span++;
-
-		dest_active = dest_span < dest_count &&
-		dest_start[dest_span] <= x;
-		source_active = source_span < source_count &&
-		source_start[source_span] <= x;
-
-		if(dest_span < dest_count)
-		{
-			u32 boundary = dest_active ?
-			dest_end[dest_span] :
-			dest_start[dest_span];
-			if(boundary < next)
-				next = boundary;
-		}
-		if(source_span < source_count)
-		{
-			u32 boundary = source_active ?
-			source_end[source_span] :
-			source_start[source_span];
-			if(boundary < next)
-				next = boundary;
-		}
-
-		if(next <= x)
-		{
-			x++;
-			continue;
-		}
-		if(!dest_active)
-		{
-			if(source_active)
-				Launcher_DmaCopyAligned32(cached_line + x,
-				VideoBuffer + dest_y * 240 + x,
-				(next - x) * 2);
-			else
-				Launcher_DmaCopyAligned32(VideoBuffer + source_y * 240 + x,
-				VideoBuffer + dest_y * 240 + x,
-				(next - x) * 2);
-		}
-		x = next;
-	}
 }
 
 static void Launcher_CopyAllCachedListRows(u32 preserve_art, u32 skip_line)
@@ -6666,40 +6565,6 @@ static void Launcher_ClearClip(int x, int y, int w, int h, u16 color)
 	Clear(x0, y0, x1 - x0, y1 - y0, color, 1);
 }
 
-static void Launcher_ClearClipStriped(int x, int y, int w, int h, u16 color_a, u16 color_b)
-{
-	int x0 = x;
-	int y0 = y;
-	int x1 = x + w;
-	int y1 = y + h;
-	int row;
-
-	if(x0 < 0) x0 = 0;
-	if(y0 < 0) y0 = 0;
-	if(x1 > 240) x1 = 240;
-	if(y1 > 160) y1 = 160;
-
-	if((x1 <= x0) || (y1 <= y0))
-		return;
-
-	for(row = y0; row < y1; row++)
-	{
-		Clear(x0, row, x1 - x0, 1, ((row - y) & 1) ? color_b : color_a, 1);
-	}
-}
-
-static void Launcher_ClearTitleFillClipPhase(int x, int y, int w, int h, u16 base_fill, int phase)
-{
-	u16 stripe_fill = gl_color_title_stripe;
-	if(base_fill != gl_color_title_fill)
-		stripe_fill = base_fill;
-
-	if(phase & 1)
-		Launcher_ClearClipStriped(x, y, w, h, stripe_fill, base_fill);
-	else
-		Launcher_ClearClipStriped(x, y, w, h, base_fill, stripe_fill);
-}
-
 static void Launcher_ClearTextBodyBackgroundRegion(int x, int y, int w, int h)
 {
 	int x0 = x;
@@ -7303,10 +7168,10 @@ static void Launcher_UpdateEffectiveViewMode(void)
 	gl_show_Thumbnail && (gl_show_Thumbnail != LAUNCHER_VIEW_LIST_ART) &&
 	(launcher_sd_launchable_file_count == 0))
 		launcher_effective_show_thumbnail = LAUNCHER_VIEW_LIST;
-    if(launcher_active_page == SD_list && !recents_view_active &&
-       !strncasecmp(currentpath, "/SYSTEM", 7) &&
-       (!currentpath[7] || currentpath[7] == '/'))
-        launcher_effective_show_thumbnail = LAUNCHER_VIEW_LIST;
+	if(launcher_active_page == SD_list && !recents_view_active &&
+	   !strncasecmp(currentpath, "/SYSTEM", 7) &&
+	   (!currentpath[7] || currentpath[7] == '/'))
+		launcher_effective_show_thumbnail = LAUNCHER_VIEW_LIST;
 	if(old_view != launcher_effective_show_thumbnail)
 		launcher_force_full_redraw = 1;
 }
@@ -8337,10 +8202,11 @@ static void Launcher_ShiftThumbCache(int move, u32 new_center_index)
 
 static u32 Launcher_ThumbNavRepeatDelay(void)
 {
-    if(launcher_carousel_animations)
-        return (!launcher_cache_selected.valid || !launcher_cache_selected.has_thumbnail) ? 2 : 0;
 	u32 total;
 	u32 incomplete_triplet;
+
+	if(launcher_carousel_animations)
+		return (!launcher_cache_selected.valid || !launcher_cache_selected.has_thumbnail) ? 2 : 0;
 
 	if(Launcher_ActiveViewMode() != 2)
 	{
@@ -13681,7 +13547,7 @@ typedef enum
 
 static const u32 launcher_settings_interface_items[] = {
     SETTINGS_TIME_SETTINGS, SETTINGS_CLOCK_FORMAT, SETTINGS_LANGUAGE, SETTINGS_SOUNDS,
-    SETTINGS_HIDE_SYSTEM, SETTINGS_THEME_MODE, SETTINGS_THEME, SETTINGS_LOAD_STYLE, SETTINGS_VIEW_MODE,
+    SETTINGS_THEME_MODE, SETTINGS_THEME, SETTINGS_LOAD_STYLE, SETTINGS_VIEW_MODE,
     SETTINGS_VIEW_OPTIONS, SETTINGS_WRAP_AROUND, SETTINGS_BOOT_TO, SETTINGS_START_SOURCE };
 static const u32 launcher_settings_view_items[] = {
     SETTINGS_LIST_FOLDERS, SETTINGS_THUMBNAILS, SETTINGS_ART_POSITION, SETTINGS_ART_BORDER,
@@ -13753,11 +13619,14 @@ static void Launcher_ThemePickerPopup(u32 category, u32 bg_selected, u32 bg_top)
     u32 selected = launcher_theme_index;
     u32 top = (selected >= visible) ? (selected - visible + 1) : 0;
     u32 dirty = 2;
+    u32 scroll_delay = 0;
 
     while(1)
     {
         VBlankIntrWait();
         UIAudio_Update();
+        if(scroll_delay > 0)
+            scroll_delay--;
         if(dirty)
         {
             if(dirty == 2)
@@ -13768,42 +13637,37 @@ static void Launcher_ThemePickerPopup(u32 category, u32 bg_selected, u32 bg_top)
         scanKeys();
         {
             u16 keysdown = keysDown();
+            u16 keysrepeat = keysDownRepeat();
             if(keysdown & KEY_B)
             {
                 UIAudio_PlayBack();
                 return;
             }
-            if((keysdown & KEY_DOWN) && selected + 1 < LAUNCHER_THEME_COUNT)
+            if(keysdown & KEY_L)
             {
-                u32 old_selected = selected;
-                u32 old_top = top;
-                selected++;
-                if(selected >= top + visible)
-                    top = selected - visible + 1;
-                UIAudio_PlaySfx(UI_SFX_MOVE);
-                if(top == old_top)
-                {
-                    Launcher_SettingsDrawPopupRowEx(old_selected, selected, top, Launcher_ThemePickerGetLine, 45);
-                    Launcher_SettingsDrawPopupRowEx(selected, selected, top, Launcher_ThemePickerGetLine, 45);
-                }
-                else
-                    dirty = 1;
+                Launcher_RequestSettingsTab(2);
+                return;
             }
-            else if((keysdown & KEY_UP) && selected > 0)
+            if(keysdown & KEY_R)
             {
-                u32 old_selected = selected;
-                u32 old_top = top;
-                selected--;
-                if(selected < top)
-                    top = selected;
-                UIAudio_PlaySfx(UI_SFX_MOVE);
-                if(top == old_top)
+                Launcher_RequestSettingsTab(0);
+                return;
+            }
+            if((keysdown & KEY_DOWN) || ((keysrepeat & KEY_DOWN) && scroll_delay == 0) ||
+               (keysdown & KEY_UP) || ((keysrepeat & KEY_UP) && scroll_delay == 0))
+            {
+                int direction = ((keysdown & KEY_DOWN) || ((keysrepeat & KEY_DOWN) && scroll_delay == 0)) ? 1 : -1;
+                if(Launcher_MenuCanMove(selected, LAUNCHER_THEME_COUNT, direction))
                 {
-                    Launcher_SettingsDrawPopupRowEx(old_selected, selected, top, Launcher_ThemePickerGetLine, 45);
-                    Launcher_SettingsDrawPopupRowEx(selected, selected, top, Launcher_ThemePickerGetLine, 45);
+                    u32 old_selected = selected;
+                    u32 old_top = top;
+                    selected = Launcher_MenuMove(selected, LAUNCHER_THEME_COUNT, direction);
+                    top = Launcher_MenuTop(selected, top, visible);
+                    UIAudio_PlaySfx(UI_SFX_MOVE);
+                    scroll_delay = (keysdown & (direction > 0 ? KEY_DOWN : KEY_UP)) ? 10 : 5;
+                    Launcher_SettingsMovePopupSelection(DSTEXT_SETTINGS_COLOUR, LAUNCHER_THEME_COUNT,
+                        old_selected, old_top, selected, top, Launcher_ThemePickerGetLine, 45);
                 }
-                else
-                    dirty = 1;
             }
             else if(keysdown & (KEY_A | KEY_START))
             {
@@ -13979,11 +13843,12 @@ static void Launcher_SettingsCategoryWindow(u32 category)
             else if(keysdown & (KEY_A | KEY_RIGHT))
             {
                 u32 changed_item = launcher_settings_active_items[selected];
+                u32 opened_colour_popup = changed_item == SETTINGS_THEME && (keysdown & KEY_A);
                 const u16 *old_bg = (const u16*)gImage_SET;
                 const u16 *old_top = Launcher_GetThemeTopForBase(old_bg);
                 u16 old_text = gl_color_text, old_top_text = gl_color_topbar_text;
                 UIAudio_PlaySfx(UI_SFX_ACCEPT);
-                if(changed_item == SETTINGS_THEME && (keysdown & KEY_A))
+                if(opened_colour_popup)
                     Launcher_ThemePickerPopup(category, selected, top);
                 else
                     Launcher_SettingsToggle(changed_item, 1);
@@ -14003,7 +13868,8 @@ static void Launcher_SettingsCategoryWindow(u32 category)
                     top = Launcher_MenuTop(selected, top, visible);
                     dirty = 1;
                 }
-                if((changed_item == SETTINGS_THEME &&
+                if(opened_colour_popup ||
+                   (changed_item == SETTINGS_THEME &&
                     Launcher_SettingsRefreshColour(old_bg, old_top, old_text, old_top_text)) ||
                    Launcher_SettingsItemNeedsFullRedraw(changed_item))
                     dirty = 1;

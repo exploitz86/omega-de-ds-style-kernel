@@ -30,6 +30,17 @@ Need 'source\ezkernelnew.c' 'old_view == LAUNCHER_VIEW_LIST && new_view == LAUNC
 Need 'source\ezkernelnew.c' 'if(!top && (base == launcher_current_theme_bg))' 'v7.3 full-screen-theme path'
 Need 'source\showcht.c' "Avoid clearing the whole body to preserve v7.3's flicker-free redraw." 'merged v7.3 cheat redraw'
 
+$InterfaceItems = [regex]::Match((Read-All 'source\ezkernelnew.c'),
+    '(?s)static const u32 launcher_settings_interface_items\[\]\s*=\s*\{(.*?)\};')
+if (-not $InterfaceItems.Success -or
+    $InterfaceItems.Groups[1].Value -notmatch 'SETTINGS_SOUNDS\s*,\s*SETTINGS_THEME_MODE\s*,') {
+    throw 'Interface settings must navigate directly from Sounds to Theme'
+}
+$SettingsSource = Read-All 'source\ezkernelnew.c'
+if ($SettingsSource -notmatch 'if\(opened_colour_popup\s*\|\|[\s\S]*?dirty\s*=\s*1;') {
+    throw 'Closing the Colour popup must redraw the settings list'
+}
+
 Need 'source\showcht.h' '#define MAX_RUNTIME_CHEAT_RECORDS 128' 'Enhanced 128-record limit'
 Need 'source\showcht.h' 'CHT_OP_IF_EQ' 'Enhanced condition opcodes'
 Need 'source\showcht.h' 'CHT_OP_WRITE16' 'Enhanced W16 opcode'

@@ -532,7 +532,7 @@ DSStyle_ReturnDark:
     orr r2,r2,r3,lsl #24
     ldr r3,=0x52544c53
     cmp r2,r3
-    ldreqb r4,[r1,#120]
+    ldrbeq r4,[r1,#120]
     movne r4,#0
     mov r0,#0
     bl SetRampage
@@ -550,13 +550,13 @@ DSStyle_LoadMenuColours:
     orr r2,r2,r3,lsl #8
     ldr r3,=0x4453
     cmp r2,r3
-    ldreqb r2,[r1,#2]
-    ldreqb r3,[r1,#3]
+    ldrbeq r2,[r1,#2]
+    ldrbeq r3,[r1,#3]
     orreq r2,r2,r3,lsl #8
     movne r2,#0x4500
     orrne r2,r2,#0xca
-    ldreqb r3,[r1,#4]
-    ldreqb r4,[r1,#5]
+    ldrbeq r3,[r1,#4]
+    ldrbeq r4,[r1,#5]
     orreq r3,r3,r4,lsl #8
     ldrne r3,=0x7fff
     adrl r4,spend_0x80

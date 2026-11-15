@@ -4,7 +4,6 @@
 static unsigned slot_return_pending;
 static unsigned slot_return_options;
 static unsigned slot_return_request_seen;
-static unsigned slot_return_save_failed;
 static char slot_return_filename[100];
 #ifndef SLOT_RETURN_MAILBOX
 #define SLOT_RETURN_MAILBOX ((volatile uint32_t*)SLOT_RETURN_COOKIE_ADDRESS)
