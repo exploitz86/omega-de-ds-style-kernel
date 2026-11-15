@@ -1,16 +1,34 @@
-# Enhancement and Change Log for Enhanced 7.5
+# Enhancement and Change Log for Enhanced 8.2
 
-Changes in the upstream DS Style 7.5 release, followed by the changes this fork (Enhanced) makes on top of it (EZ-Flash Omega Definitive Edition).
+Changes in upstream DS Style releases, followed by the changes this fork (Enhanced) makes on top of them (EZ-Flash Omega Definitive Edition).
 
-## DS Style v7.5 (upstream)
+## DS Style v8.2
 
-- Added smooth carousel animations, enabled by default, with small or equal-size side previews and an option to turn animations off.
-- Added a selection pulse before directly launching from an animated carousel.
-- Completed square artwork borders in animated carousel views.
-- Refreshed the startup screen and emulated-system icons, contributed by Merkin.
-- Added an optional Wrap list setting for cycling between the first and last browser entries.
-- Added defensive save and real-time-save file checks so incomplete SD-card reads or writes are reported instead of being treated as successful.
-- Improved SD-card error handling, cheat-file bounds checking, and filename/path validation.
+- Added rebindable in-game menu and hold-to-exit shortcuts for GBA add-ons and GB/GBC games.
+
+## DS Style v8.1
+
+- Added a redesigned in-game add-on menu with Light and Dark palettes.
+- Press Start + Select to open the menu, or hold Select to exit. The old configurable add-on and sleep hotkey settings have been removed.
+- Exit game returns to the original screen and selection. The launcher stays covered until it is ready, and holding Select through the transition no longer changes the browser view.
+- Moved pending save work behind the startup splash.
+- Updated GB/GBC emulation to Jagoomba Color v0.5 with matching menu and exit controls and no decorative borders.
+
+## DS Style v8.0
+
+- Added smooth animated horizontal and vertical carousels, enabled by default, with adjustable side-art size and a direct-launch selection pulse.
+- Refined the Start screen with pale selection-corner highlights and responsive easing animations.
+- Refined menu sounds, square-framed pop-ups, startup transitions and theme-matched launch fades.
+- Added a transparent loading ring centred on the selected artwork while preparing a game.
+- Simplified Settings with contextual View options, Auto theme (dark from 20:00 to 08:00), and Open SYSTEM for file management.
+- Made clean list names standard and kept the Start screen available independently of the Boot to choice.
+- Enabled wrap-around browsing by default, including settings and pop-up menus; saved Off preferences remain unchanged.
+- Made double-tap Select add or remove favourites without a confirmation popup.
+- Refreshed splash screens and system icons, with contributions by Merkin.
+- Added defensive save and real-time-save I/O checks, SD-card error handling, cheat bounds checking and filename/path validation.
+- Prevented fragmented-file tables from overwriting adjacent data when their capacity is exceeded.
+- Included artwork in the standard SYSTEM folder instead of a separate optional-extras folder.
+- Updated in-kernel guidance, language support, Customiser compatibility, manager and user guide.
 
 ## Enhanced fork changes
 

@@ -247,7 +247,7 @@ void SetTrimSize(u8* buffer,u32 romsize,u32 iSize,u32 mode,BYTE saveMODE)
 	u32 PATCH_LENGTH;
     if (0) /* RTS-only engine retired: RTS always uses the menu engine */
         PATCH_LENGTH = (u32)((u8*)RTS_only_ReplaceIRQ_end - (u8*)RTS_only_ReplaceIRQ_start);
-    else if (gl_rts_on == 1 || gl_cheat_on == 1)
+    else if (gl_rts_on == 1 || gl_cheat_on == 1 || gl_reset_on == 1)
         PATCH_LENGTH = (u32)((u8*)RTS_ReplaceIRQ_end - (u8*)RTS_ReplaceIRQ_start)
             + MAX_RUNTIME_CHEAT_RECORDS * 8u;
     else
@@ -416,17 +416,15 @@ void Patch_RTS_Cheat(u32 *Data)
 	u16 read5 = Read_SET_info(assress_edit_sleephotkey_0); 
 	u16 read6 = Read_SET_info(assress_edit_sleephotkey_1); 
 	u16 read7 = Read_SET_info(assress_edit_sleephotkey_2); 
-	u16 read8 = Read_SET_info(assress_edit_rtshotkey_0); 
-	u16 read9 = Read_SET_info(assress_edit_rtshotkey_1); 
-	u16 read10 = Read_SET_info(assress_edit_rtshotkey_2); 
 	u16 RTS_sleep_key_val = ~((1<< read5) | (1<< read6) | (1<< read7));
-  u16 RTS_reset_key_val = ~((1<< read8) | (1<< read9) | (1<< read10));	
 	 
   u32 RTS_Reset_key_offset = (u8*)RTS_Reset_key - p_patch_start;
  	u32 RTS_Sleep_key_offset = (u8*)RTS_Sleep_key - p_patch_start;
-  
-  *(vu32*)(patchbuffer+RTS_Reset_key_offset) = RTS_reset_key_val&0x3FF;
-  if(gl_sleep_on !=1){  
+  extern u16 DSStyle_MenuButtons(void), DSStyle_ExitButton(void);
+  extern const u8 Slot_RTS_HoldEnabled[];
+  *(vu32*)(patchbuffer+RTS_Reset_key_offset) = 0x3ff ^ DSStyle_MenuButtons();
+  *(vu32*)(patchbuffer+(Slot_RTS_HoldEnabled-p_patch_start)) = gl_reset_on ? DSStyle_ExitButton() : 0;
+  if(gl_sleep_on !=1){
     *(vu32*)(patchbuffer+RTS_Sleep_key_offset) = 0;
   }
   else{
@@ -604,12 +602,8 @@ void GBApatch_PSRAM(u32* address,int filesize)//Only once
 	if (gl_cheat_on == 1)
 		ApplyActiveRomPatches(WritePSRAMRomByte, &rom_context,
 			rom_context.rom_size);
-	
-	if(0) { /* RTS-only engine retired */
-		spend_address = 0; /* 13.7e1: CPU backup uses reserved SRAM, not game RAM. */
-		Patch_RTS_only(address);		
-	}
-	else if((gl_rts_on==1) ||  ((gl_cheat_on==1)&& (gl_cheat_count>0) ) )		
+
+	if((gl_reset_on==1) || (gl_rts_on==1) ||  ((gl_cheat_on==1)&& (gl_cheat_count>0) ) )
 	{
 		spend_address = 0; /* 13.7e1: CPU backup uses reserved SRAM, not game RAM. */
 		//DEBUG_printf("spend_address =%x",spend_address);
@@ -638,7 +632,7 @@ void GBApatch_NOR(u32* address,int filesize,u32 offset)
     /* NOR writes its entry hook in block zero, before Patch_RTS_* runs.
      * Apply the same capacity gate here so a failure cannot leave that hook
      * pointing to an absent/truncated runtime. */
-    if (gl_rts_on == 1 || (gl_cheat_on == 1 && gl_cheat_count > 0)) {
+    if (gl_reset_on == 1 || gl_rts_on == 1 || (gl_cheat_on == 1 && gl_cheat_count > 0)) {
         u32 bytes;
         if (0) /* RTS-only engine retired: RTS always uses the menu engine */
             bytes=(u32)((u8*)RTS_only_ReplaceIRQ_end-(u8*)RTS_only_ReplaceIRQ_start);
@@ -667,10 +661,7 @@ void GBApatch_NOR(u32* address,int filesize,u32 offset)
 	PatchNes(address);
 	AutoPatch_ApplyFixedWrites();
 
-	if(0) { /* RTS-only engine retired */
-		Patch_RTS_only(address);		
-	}
-	else if((gl_rts_on==1) ||  ((gl_cheat_on==1)&& (gl_cheat_count>0) ) )		
+	if((gl_reset_on==1) || (gl_rts_on==1) ||  ((gl_cheat_on==1)&& (gl_cheat_count>0) ) )
 	{
 		Patch_RTS_Cheat(address);
 	} 
@@ -746,7 +737,7 @@ u32 Check_pat(TCHAR* gamefilename)
 	
 	TCHAR patnamebuf[100];	
 	make_pat_name(patnamebuf,gamefilename);
-	res=f_chdir("/SYSTEM/PATCH");
+	res=f_chdir("/SYSTEM/PATCH/DS81");
 	if(res == FR_OK)
 	{
 		res = f_open(&gfile,patnamebuf, FA_READ);
@@ -806,8 +797,9 @@ void Make_pat_file(TCHAR* gamefilename)
 	u32 w_buffer[16];
 	
 	res = f_mkdir("/SYSTEM/PATCH");
-	res=f_chdir("/SYSTEM/PATCH");
-	
+    f_mkdir("/SYSTEM/PATCH/DS81");
+	res=f_chdir("/SYSTEM/PATCH/DS81");
+
 	memset(w_buffer, 0x00, sizeof(w_buffer));
 
 	if(res == FR_OK){
@@ -942,7 +934,7 @@ static u32 CreateRtsFile(const TCHAR *filename)
 	UINT written;
 	FRESULT res;
 
-	res = f_open(&gfile, filename, FA_WRITE | FA_CREATE_ALWAYS);
+	res = f_open(&gfile, filename, FA_WRITE | FA_CREATE_NEW);
 	if (res != FR_OK)
 		return 0;
 
@@ -953,7 +945,8 @@ static u32 CreateRtsFile(const TCHAR *filename)
 		res = f_write(&gfile, pReadCache, RTS_CREATE_CHUNK, &written);
 		if (res != FR_OK || written != RTS_CREATE_CHUNK)
 		{
-			f_close(&gfile);
+			if (f_close(&gfile) == FR_OK)
+				f_unlink(filename);
 			return 0;
 		}
 	}
@@ -961,32 +954,35 @@ static u32 CreateRtsFile(const TCHAR *filename)
 	res = f_sync(&gfile);
 	if (res != FR_OK || f_size(&gfile) != RTS_FILE_SIZE)
 	{
-		f_close(&gfile);
+		if (f_close(&gfile) == FR_OK)
+			f_unlink(filename);
 		return 0;
 	}
 
 	return f_close(&gfile) == FR_OK;
 }
 
-u32 Check_RTS(TCHAR* gamefilename)
+u32 Check_RTS(TCHAR* gamefilename, u32 new_addon)
 {
 	u32 res;
 	u32 rtsfilesize = 0;
+	u32 len;
 	TCHAR rtsnamebuf[100];
 
-	memcpy(rtsnamebuf, gamefilename, sizeof(rtsnamebuf));
-	rtsnamebuf[sizeof(rtsnamebuf) - 1] = 0;
-	{
-		u32 len = strlen(rtsnamebuf);
-		if (len < 3)
-			return 0;
-		rtsnamebuf[len-3] = 'r';
-		rtsnamebuf[len-2] = 't';
-		rtsnamebuf[len-1] = 's';
-	}
+	for (len = 0; len < sizeof(rtsnamebuf) && gamefilename[len]; len++)
+		;
+	if (len < 3 || len >= sizeof(rtsnamebuf))
+		return 0;
+	memcpy(rtsnamebuf, gamefilename, len);
+	rtsnamebuf[len] = '\0';
+	rtsnamebuf[len-3] = 'r';
+	rtsnamebuf[len-2] = 't';
+	rtsnamebuf[len-1] = 's';
 
 	f_mkdir("/SYSTEM/RTS");
-	res = f_chdir("/SYSTEM/RTS");
+	if(new_addon)
+		f_mkdir("/SYSTEM/RTS/DS81");
+	res = f_chdir(new_addon ? "/SYSTEM/RTS/DS81" : "/SYSTEM/RTS");
 	if (res != FR_OK)
 		return 0;
 
@@ -995,15 +991,18 @@ u32 Check_RTS(TCHAR* gamefilename)
 	{
 		rtsfilesize = f_size(&gfile);
 		f_close(&gfile);
+		if (rtsfilesize != RTS_FILE_SIZE)
+			return 0;
 	}
-
-	if (rtsfilesize != RTS_FILE_SIZE)
+	else if (res == FR_NO_FILE)
 	{
 		ShowbootProgress(gl_make_RTS);
 		if (!CreateRtsFile(rtsnamebuf))
 			return 0;
 		rtsfilesize = RTS_FILE_SIZE;
 	}
+	else
+		return 0;
 
 	if (!LoadRTSfile(rtsnamebuf))
 		return 0;
@@ -1505,4 +1504,3 @@ void AutoPatch_ApplySearchWrites(u32 *Data)
 		}
 	}
 }
-

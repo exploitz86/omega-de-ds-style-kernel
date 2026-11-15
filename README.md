@@ -1,4 +1,4 @@
-# DS Style 7.5 Enhanced
+# DS Style 8.2 Enhanced
 
 <p align="center">
   <a href="https://github.com/exploitz86/omega-de-ds-style-kernel/releases">
@@ -15,9 +15,16 @@
   </a>
 </p>
 
-Source release for **DS Style 7.5 Enhanced** for the EZ-FLASH OMEGA Definitive Edition.
+Source for **DS Style 8.2 Enhanced** for the EZ-FLASH OMEGA Definitive Edition.
 
 This is a fork of [FrankieT19's DS Style kernel](https://github.com/FrankieT19/omega-de-ds-style-kernel). It also builds on work from [SkillerCMP's fork](https://github.com/SkillerCMP/omega-de-ds-style-kernel). See [CHANGELOG.md](CHANGELOG.md) for everything this fork changes.
+
+## Current Release
+
+DS Style v8.2. Copy the contents of the download's `SD Card` folder to the root of your microSD card, then boot while holding **R**. Artwork is included; no separate optional-artwork step is needed. Back up your card first. Existing games, saves and settings remain compatible.
+
+Supports the original Omega DE **Rev.A and Rev.B**, not the newer **Omega Definitive Edition B (EZODE-B)**.
+
 
 ## Enhancements in this fork
 
@@ -38,23 +45,25 @@ These links belong to the upstream project by FrankieT19.
 
 ## Features
 
+- Rebind the in-game menu and exit shortcuts in Settings > Games > Addon settings.
+
 - DS-style launcher interface
-- Multiple colour themes and light/dark presentation support
+- Multiple accent colours and Light, Dark or clock-based Auto theme
 - Customisable launcher assets through DS Style Customiser
 - List, List + Art, horizontal carousel, and vertical carousel file views
 - Title and box-art thumbnail modes
 - Favourite and recent game support
 - Multi-language launcher text, including Chinese and Thai
 - Bundled text and Markdown viewer with light and dark modes
-- Optional folder artwork for supported emulated systems
+- Included title, box and console-folder artwork in the standard installation
 - UI sounds
 - Smooth carousel animations enabled by default, adjustable side-preview sizes and a launch pulse
-- Optional browser wrapping and defensive save-file checks
+- Wrap-around browsing and menus enabled by default, with defensive file checks
 - Runtime settings stored in readable `SYSTEM/SETTINGS.TXT`
 
 ## Building
 
-Install devkitPro/devkitARM (r54 or the latest release), then run:
+Install devkitPro/devkitARM (r54 or the latest release) and Python 3 (available as `python` on PATH), then run:
 
 ```bat
 Build-DS-Style-Enhanced.cmd
@@ -87,6 +96,14 @@ The files directly under `SD-Card-Addons/SYSTEM/PATCHES/` document and verify th
 ## Savestates
 
 GBA savestates use RTS3. The source includes the current RTS3 inspector and maintenance tools under `tools/`.
+New add-on launches use the existing `/SYSTEM/RTS` location; NOR games already
+written with the upstream v8.2 add-on continue to use `/SYSTEM/RTS/DS81`.
+Back up savestates before updating or rewriting a NOR game. Incompatible
+savestates cannot be converted automatically.
+
+The configurable hold-to-exit shortcut in the RTS3 GBA add-on counts VBlank
+interrupts, so it may not work in games that do not generate them. Use the
+in-game menu's Exit option instead.
 
 - Original kernel source by EZ-FLASH
 - SimpleLight custom kernel by Sterophonick
@@ -94,9 +111,12 @@ GBA savestates use RTS3. The source includes the current RTS3 inspector and main
 - Additional work from SkillerCMP's fork
 - Enhancements in this fork by exploitz86
 - Contributions by Merkin
+- Contributions by timdmackey
 - Thai language support by aidiadayo
 - Case-sensitive `HZK12.h` include fix by Kekun
 - FatFs by ChaN, as used by the upstream kernel
+
+The kernel uses the included GB/GBC emulator header. The [emulator source and build script](https://github.com/FrankieT19/omega-de-ds-style-kernel/releases/download/v8.2/DS-Style-v8.2-GB-GBC-Emulator-Source.zip) are available separately.
 
 ## License
 

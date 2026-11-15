@@ -1,3 +1,5 @@
+.DELETE_ON_ERROR:
+DS_STYLE_PYTHON ?= python
 #---------------------------------------------------------------------------------
 .SUFFIXES:
 #---------------------------------------------------------------------------------
@@ -25,7 +27,7 @@ endif
 # the makefile is found
 #
 #---------------------------------------------------------------------------------
-VERSION		:= $(shell sed -n 's/.*LAUNCHER_VERSION_TEXT *"\([^"]*\)".*/\1/p' $(TOPDIR)/source/launcher_version.h)
+VERSION		:= $(shell sed -n 's/.*LAUNCHER_VERSION_TEXT *"\([^"]*\)".*/\1/p' $(TOPDIR)/source/launcher_version.h | tr ' ' '-')
 TARGET		?= DS-Style-$(VERSION)-Source1
 BUILD		:= build/obj
 SOURCES		:= source source/ff15
@@ -142,6 +144,13 @@ else
 #---------------------------------------------------------------------------------
 
 $(OUTPUT).gba	:	$(OUTPUT).elf
+ifneq ($(DS_STYLE_RAW),1)
+$(OUTPUT).gba: $(TOPDIR)/boot-entry.s $(TOPDIR)/v81_boot_entry.py
+	$(OBJCOPY) -O binary $(OUTPUT).elf $@
+	gbafix $@ -t$(GAME_TITLE) -c$(GAME_CODE) -m$(MAKER_CODE)
+	$(DS_STYLE_PYTHON) "$(TOPDIR)/v81_boot_entry.py" "$@" "$(DEVKITARM)/bin"
+endif
+
 
 $(OUTPUT).elf	:	$(OFILES)
 

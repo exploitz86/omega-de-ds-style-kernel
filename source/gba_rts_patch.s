@@ -5,7 +5,22 @@
 	/* This is a byte-for-byte template copied into the game ROM; the kernel never
 	 * executes it in place, so keeping the source template in ROM preserves IWRAM. */
 	.section   	.rodata,"a",%progbits
-		
+
+/* Palette is resolved once when the menu opens, including for NOR games. */
+.macro DS_MENU_COLOUR out, pair, scratch
+    adrl \scratch,spend_0x80
+    ldr \scratch,[\scratch]
+    ldrh \scratch,[\scratch,#0x3e]
+    adrl \out,\pair
+    add \out,\out,\scratch,lsl #1
+    ldrh \out,[\out]
+.endm
+	.include "slot_hold_reset.inc"
+	.include "slot_return_mark.inc"
+	.global Slot_RTS_HoldEnabled
+	.global Slot_RTS_Background,Slot_RTS_Panel,Slot_RTS_Ink
+	.global Slot_MenuFont,Slot_MarkReturn
+	.global ingamemenu_now
 	.global  RTS_ReplaceIRQ_start
 	.global  RTS_ReplaceIRQ_end
 	.global  RTS_Return_address_L
@@ -119,11 +134,16 @@ RTS_irq:
 
 	add 		r2,r0,#0x100
 	ldrh		r2,[r2,#0x30]		@;KEYINPUT (0x04000130), 16-bit
-	
+	tst r1,#0x10000
+	stmfd sp!,{lr}
+	blne rts3_hold_tick
+	ldmfd sp!,{lr}
+
 	@;check ingamemenu
 	RTS_ADRL 		r3,RTS_Reset_key 
 	ldr 		r3,[r3]
-	cmp 		r2,r3		
+	bic r3,r2,r3
+	lsls r3,r3,#22
 	bne			check_sleep	
 	@ RTS3: qualify capture at VBlank instead of polling inside an arbitrary IRQ.
 	ldrh r1,[r0,#6]
@@ -460,61 +480,101 @@ nocheat:
 	ldr 		pc,[r0,#-(0x04000000-0x03FFFFF4)] @;to normal IRQ routine
 @;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 @;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-reset_now:
-	RTS_ADRL r1,reset_code
-	RTS_ADRL r3,reset_end
-	mov r2,#0x02000000
-copy_loop:
-	ldr r0,[r1],#4
-	str r0,[r2],#4
-	cmp r1,r3
-	blt copy_loop
-	mov r0,#0x02000000
-	add r0,r0,#1
-	bx r0
-@;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-	.align	
+@ Page 0x30 is reserved launcher scratch; the counter never occupies game RAM.
+rts3_hold_tick:
+	stmfd sp!,{r0-r5,lr}
+	mov r4,r2
+	RTS_ADRL r3,Slot_RTS_HoldEnabled
+	ldr r5,[r3]
+	cmp r5,#0
+	ldmfdeq sp!,{r0-r5,pc}
+	RTS_ADRL r3,RTS_Reset_key
+	ldr r3,[r3]
+	bic r3,r4,r3
+	lsls r3,r3,#22
+	moveq r5,#0
+	tst r4,r5
+	movne r5,#0
+	mov r0,#0x30
+	bl SetRampage
+	ldr r4,=0x0e005100
+	ldrb r2,[r4]
+	cmp r5,#0
+	moveq r2,#0
+	addne r2,r2,#1
+	strb r2,[r4]
+	cmp r2,#180
+	movhs r2,#0
+	strbhs r2,[r4]
+	mov r0,#0
+	bl SetRampage
+	ldmfd sp!,{r0-r5,lr}
+	bhs reset_now
+	bx lr
+	.ltorg
+	.syntax divided
+	.include "slot_gba_return.inc"
 	.syntax unified
-	.thumb
-reset_code:
-	movs r0,#0x20
-	lsls r3,r0,#22 @;#0x8000000 r3
-	lsls r0,r0,#12 @;#0x0020000
-	adds r4,r3,r0  @;#0x8020000 r4
-	adds r5,r4,r0  @;#0x8040000 r5
-	lsls r1,r0,#8  @;#0x2000000
-	adds r2,r3,r1  @;#0xa000000
-	lsrs r1,r3,#4  @;#0x0800000
-	subs r6,r2,r1  @;#0x9800000
-	lsrs r1,r1,#4  @;#0x0080000
-	adds r6,r6,r1  @;#0x9880000 r6
-	subs r2,r2,r0  @;#0x9fe0000 r2
-	subs r7,r2,r0  @;#0x9fc0000 r7
+Slot_RTS_HoldEnabled:
+	.word 4
+@;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+DSStyle_ReturnDark:
+    stmfd sp!,{r4,lr}
+    mov r0,#0x30
+    bl SetRampage
+    ldr r1,=0x0e00ff00
+    ldrb r2,[r1]
+    ldrb r3,[r1,#1]
+    orr r2,r2,r3,lsl #8
+    ldrb r3,[r1,#2]
+    orr r2,r2,r3,lsl #16
+    ldrb r3,[r1,#3]
+    orr r2,r2,r3,lsl #24
+    ldr r3,=0x52544c53
+    cmp r2,r3
+    ldreqb r4,[r1,#120]
+    movne r4,#0
+    mov r0,#0
+    bl SetRampage
+    and r0,r4,#2
+    mov r0,r0,lsr #1
+    ldmfd sp!,{r4,pc}
 
-	movs r0,#210
-	lsls r0,r0,#8  @;0xd200 r0
-	movs r1,#21
-	lsls r1,r1,#8  @;0x1500 r1
-
-	strh r0,[r2]
-	strh r1,[r3]
-	strh r0,[r4]
-	strh r1,[r5]
-
-	lsrs r0,r3,#12 @;#0x0008000 r0
-	adds r0,#2 		@;#0x0008002 r0
-
-	strh r0,[r6]
-	strh r1,[r7]
-
-	lsls r1,r0,#11 @;#0x4000000
-	subs r1,r1,#8  @;#0x3FFFFFA
-	movs r0,#0xfc  @;#252 r0
-	str r0,[r1]   @;#0x3FFFFFA (mirror of #0x3007FFA
-	swi 0x01
-	swi 0x00
-	.align	
-reset_end:
+DSStyle_LoadMenuColours:
+    stmfd sp!,{r4,lr}
+    mov r0,#0x30
+    bl SetRampage
+    ldr r1,=0x0e00fef0
+    ldrb r2,[r1]
+    ldrb r3,[r1,#1]
+    orr r2,r2,r3,lsl #8
+    ldr r3,=0x4453
+    cmp r2,r3
+    ldreqb r2,[r1,#2]
+    ldreqb r3,[r1,#3]
+    orreq r2,r2,r3,lsl #8
+    movne r2,#0x4500
+    orrne r2,r2,#0xca
+    ldreqb r3,[r1,#4]
+    ldreqb r4,[r1,#5]
+    orreq r3,r3,r4,lsl #8
+    ldrne r3,=0x7fff
+    adrl r4,spend_0x80
+    ldr r4,[r4]
+    strh r2,[r4,#0x38]
+    strh r3,[r4,#0x3a]
+    mov r0,#0
+    bl SetRampage
+    ldmfd sp!,{r4,pc}
+    .ltorg
+Slot_MarkReturn:
+	stmfd sp!,{r4-r6,lr}
+	SLOT_MARK_RETURN
+	ldmfd sp!,{r4-r6,pc}
+	.align
+Slot_ReturnRequestWords:
+	.word 0x5443454a,0xabbcbab5
+	.ltorg
 @;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 	.arm
 sleep_now:
@@ -693,64 +753,71 @@ rts3_menu_entry:
     b ingamemenu_now
 ingamemenu_now:
     bl backup_LCD
-    bl clean_screen
 
-	@; start
-	RTS_ADRL  r7,RTS_menu_min
-	ldr		r11,[r7]	@;first selectable entry (1 hides RESET)
+	mov r11,#0
 begin_show:
-	RTS_ADRL  r7,RTS_menu_min
-	ldr		r12,[r7]
-	
-	RTS_ADRL  r8,ingameMENU
-	cmp		r12,#0
-	addne	r8,r8,#6	@;skip "RESET",0
-	mov		r9,#40		 @;Y
-	mov		r10,#86    @;X	
-	
-showAll:	
+	bl clean_screen
+	mov r6,#3
 	RTS_ADRL  r7,Cheat_count
 	ldr		r7,[r7]
-	cmp 	r7,#0x0
-	beq   no_cheat  
+	cmp r7,#0
+	addne r6,r6,#1
 	RTS_ADRL  r7,RTS_menu_min
 	ldr		r7,[r7]
-	cmp		r11,r7
-	movlt	r11,#4
-	cmp		r11,#5
-	@;movge	r11,#4
-	moveq	r11,r7
-	ldrb	r0,[r8],#+1
-	cmp		r0,#0xA5
-	beq		waitSeletc	
-	b  		showMENU
-no_cheat:
-	RTS_ADRL  r7,RTS_menu_min
-	ldr		r7,[r7]
-	cmp		r11,r7
-	movlt	r11,#2
-	cmp		r11,#3
-	@;movge	r11,#2
-	moveq	r11,r7
-	ldrb	r0,[r8],#+1
-	cmp		r0,#0x43 @;'C'
-	beq		waitSeletc
-		
-showMENU:
-	cmp		r0,#0
-	addeq	r9,#16
-	moveq	r10,#86
-	addeq	r12,#1
-	beq		showAll
-	mov		r1,r10
-	add		r2,r9,#0
-	cmp		r12,r11
-	ldreq		r3,=0x6A80 @;select
-	ldrne		r3,=0x7FFF 
-	bl		printchar    @; r0 ch?? r1, X  ?? r2, Y , r3 color
-
-	add		r10,#8
-	b			showAll
+	cmp r7,#0
+	addeq r6,r6,#1
+	cmp r11,#0
+	sublt r11,r6,#1
+	cmp r11,r6
+	movge r11,#0
+	mov r12,#0
+menu_row:
+	cmp r12,#0
+	RTS_ADRL r8,s_resume
+	beq menu_text
+	cmp r12,#1
+	RTS_ADRL r8,s_save
+	beq menu_text
+	cmp r12,#2
+	RTS_ADRL r8,s_load
+	beq menu_text
+	RTS_ADRL r7,Cheat_count
+	ldr r7,[r7]
+	cmp r7,#0
+	beq menu_exit_label
+	cmp r12,#3
+	bne menu_exit_label
+	RTS_ADRL r7,CheatONOFF
+	ldr r7,[r7]
+	ldr r7,[r7]
+	cmp r7,#0
+	RTS_ADRL r8,s_cheatON
+	beq menu_text
+	RTS_ADRL r8,s_cheatOFF
+	b menu_text
+menu_exit_label:
+	RTS_ADRL r8,s_reset
+menu_text:
+	mov r10,#86
+	add r9,r12,#2
+	mov r9,r9,lsl #4
+	add r9,r9,#8
+menu_character:
+	ldrb r0,[r8],#1
+	cmp r0,#0
+	beq menu_next_row
+	mov r1,r10
+	mov r2,r9
+	cmp r12,r11
+	ldreq r3,=0x6A80
+	ldrne r3,=0x7FFF
+	bl printchar
+	add r10,r10,#8
+	b menu_character
+menu_next_row:
+	add r12,r12,#1
+	cmp r12,r6
+	blo menu_row
 
 waitSeletc:
 	ldr		r0,=0x3FF		@;No key press
@@ -782,15 +849,23 @@ pressdown:
 	b		waitSeletc
 A_pressed:	
 	cmp			r11,#0 
-	beq			reset_now	
+	beq			b_pressed_quit
 	cmp			r11,#1	
 	beq			call_Save
 	cmp			r11,#2
 	beq			call_Load
-	cmp			r11,#3
-	beq			call_CheatON
-	cmp			r11,#4
-	beq			call_CheatOFF
+	RTS_ADRL r7,Cheat_count
+	ldr r7,[r7]
+	cmp r7,#0
+	beq reset_now
+	cmp r11,#4
+	beq reset_now
+	RTS_ADRL r2,CheatONOFF
+	ldr r2,[r2]
+	ldr r3,[r2]
+	eor r3,r3,#1
+	str r3,[r2]
+	b begin_show
 	@;-------------------------------------
 @;ingamemenu_exit:
 b_pressed_quit:
@@ -951,8 +1026,10 @@ ASCII:
 	
 	.align
 ingameMENU:
+s_resume:
+	.byte 'R','E','S','U','M','E',0
 s_reset:
- 	.byte  'R','E','S','E','T',0x0
+	.byte  'E','X','I','T',0x0
 s_save:
  	.byte  'S','A','V','E',0x0
 s_load:
