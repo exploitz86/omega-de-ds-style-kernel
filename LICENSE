@@ -1,6 +1,6 @@
 DS Style v8.2
 
-The combined kernel is distributed under the GNU General Public License, version 3 or later. Original components retain their existing notices and terms. Corresponding emulator source: https://github.com/FrankieT19/omega-de-ds-style-kernel/releases/download/v8.2/DS-Style-v8.2-GB-GBC-Emulator-Source.zip
+The combined kernel is distributed under the GNU General Public License, version 3 or later. Original components retain their existing notices and terms. Bundled MiGoomba source: https://github.com/michyprima/migoomba/tree/4b401e2ac7876aed9f89face867fd43d89ce189d
 
 GNU GENERAL PUBLIC LICENSE
                        Version 3, 29 June 2007

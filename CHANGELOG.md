@@ -2,6 +2,15 @@
 
 Changes in upstream DS Style releases, followed by the changes this fork (Enhanced) makes on top of them (EZ-Flash Omega Definitive Edition).
 
+## Enhanced 8.2
+
+- Replaced the bundled GB/GBC emulator with the MiGoomba v0.1 `ezode` build,
+  based on Jagoomba Color and Goomba Color. The existing `.esv` paths are
+  retained; back up saves before updating because old emulator save-state
+  compatibility is unverified.
+- Added an optional build-time check for new MiGoomba releases, with an explicit
+  prompt before downloading and embedding a newer `ezode` binary.
+
 ## DS Style v8.2
 
 - Added rebindable in-game menu and hold-to-exit shortcuts for GBA add-ons and GB/GBC games.

@@ -112,11 +112,20 @@ in-game menu's Exit option instead.
 - Enhancements in this fork by exploitz86
 - Contributions by Merkin
 - Contributions by timdmackey
+- MiGoomba by michyprima, based on Jagoomba Color by Jaga, Goomba Color by
+  Dwedit, and Goomba by FluBBa
 - Thai language support by aidiadayo
 - Case-sensitive `HZK12.h` include fix by Kekun
 - FatFs by ChaN, as used by the upstream kernel
 
-The kernel uses the included GB/GBC emulator header. The [emulator source and build script](https://github.com/FrankieT19/omega-de-ds-style-kernel/releases/download/v8.2/DS-Style-v8.2-GB-GBC-Emulator-Source.zip) are available separately.
+The bundled GB/GBC emulator is MiGoomba v0.1 (`ezode` build), based on Jagoomba
+Color and Goomba Color. Its [pinned upstream source](https://github.com/michyprima/migoomba/tree/4b401e2ac7876aed9f89face867fd43d89ce189d)
+is available separately. Existing `.esv` paths are retained; back up saves
+before updating because compatibility with old emulator save states is not
+established. The build script can optionally check the latest MiGoomba release
+and offer to download its `ezode` binary before building. To embed a binary
+manually, pass the currently pinned binary to `python tools/embed_migoomba.py`;
+use `python tools/embed_migoomba.py --check` to verify the checked-in payload.
 
 ## License
 

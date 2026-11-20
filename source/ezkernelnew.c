@@ -306,7 +306,11 @@ u32 Check_file_type(const TCHAR *pfilename);
 #include "launcher_splash_lz.h"
 
 
-#include "goomba.h"
+#include "migoomba.h"
+typedef char MiGoombaFitsReadCache[
+	(sizeof(migoomba_gba) <= MAX_pReadCache_size) ? 1 : -1];
+typedef char MiGoombaPayloadIsWordAligned[
+	((sizeof(migoomba_gba) & 3u) == 0) ? 1 : -1];
 
 #include "accept_raw.h"
 #include "back_raw.h"
@@ -5756,9 +5760,9 @@ u32 IWRAM_CODE LoadEMU2PSRAM(TCHAR *filename,u32 is_EMU)
 	{
 		case 1://gbc
 		case 2://gb
-			dmaCopy((void*)goomba_gba,pReadCache, goomba_gba_size);
-			dmaCopy((void*)pReadCache,PSRAMBase_S98, goomba_gba_size);
-			rom_start_address = goomba_gba_size;
+			dmaCopy((void*)migoomba_gba,pReadCache, migoomba_gba_size);
+			dmaCopy((void*)pReadCache,PSRAMBase_S98, migoomba_gba_size);
+			rom_start_address = migoomba_gba_size;
 			break;
 		default:
 			res = f_open(&gfile, plugin, FA_READ);

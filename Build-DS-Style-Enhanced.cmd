@@ -19,7 +19,7 @@ set "VERSION_SAFE=%VERSION_SAFE:(=-%"
 set "VERSION_SAFE=%VERSION_SAFE:)=-%"
 set "VERSION_DASH=%VERSION_SAFE:.=-%"
 set "PROJECT_NAME=DS-Style-%VERSION_SAFE%-Source1"
-set "LOG_NAME=build-r54-ds-style-%VERSION_DASH%.log"
+set "LOG_NAME=build-ds-style-%VERSION_DASH%.log"
 
 echo.
 echo ============================================================
@@ -37,6 +37,19 @@ echo.
 
 set "SCRIPT_DIR=%~dp0"
 set "BUILD_DIR=%SCRIPT_DIR%build"
+
+choice /C YN /N /M "Check for MiGoomba release updates? [Y/N] "
+if not errorlevel 2 (
+    python -B "%SCRIPT_DIR%tools\update_migoomba.py"
+    if errorlevel 1 (
+        echo ERROR: MiGoomba update failed after selection.
+        pause
+        exit /b 1
+    )
+) else (
+    echo Keeping the currently embedded MiGoomba release.
+)
+echo.
 
 rem Start every normal build with a clean build-output folder.
 if exist "%BUILD_DIR%" rmdir /S /Q "%BUILD_DIR%"

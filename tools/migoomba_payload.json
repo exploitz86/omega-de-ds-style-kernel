@@ -1,0 +1,10 @@
+{
+  "upstream": "https://github.com/michyprima/migoomba",
+  "version": "v0.1",
+  "upstream_commit": "4b401e2ac7876aed9f89face867fd43d89ce189d",
+  "variant": "ezode",
+  "upstream_binary": "migoomba_v0.1_ezode.gba",
+  "bytes": 82012,
+  "sha256": "b6b255ccb10f1a106f742bf74f6a916110df7f35413958d6ce9528feca0b334a",
+  "embedded_header": "source/migoomba.h"
+}
